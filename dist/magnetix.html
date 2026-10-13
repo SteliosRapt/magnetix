@@ -1,0 +1,2117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Magnetix</title>
+<style>
+:root{
+  --bg:#1e1e1e; --side:#252526; --act:#333333; --border:#2b2b2b;
+  --fg:#cccccc; --dim:#858585; --sel:#37373d; --hover:#2a2d2e;
+  --accent:#007acc; --accent2:#3794ff; --track:#3c3c3c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font:13px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit}
+#app{display:flex;height:100vh;width:100vw}
+
+/* activity bar */
+#activity{width:48px;flex:none;background:var(--act);display:flex;flex-direction:column;align-items:center;padding:4px 0 8px;z-index:3}
+.act{width:48px;height:48px;border:0;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer;position:relative;outline:none}
+.act:hover{color:var(--fg)}
+.act.on{color:#fff}
+.act.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:#fff;border-radius:0 1px 1px 0}
+.act svg{width:22px;height:22px}
+.spacer{flex:1}
+
+/* panels */
+.panel{flex:none;width:var(--w);background:var(--side);overflow:hidden;position:relative;
+  transition:width .26s cubic-bezier(.2,.8,.2,1)}
+.panel.closed{width:0;border-width:0!important}
+.panel-inner{width:var(--w);height:100%;display:flex;flex-direction:column}
+#explorer{--w:232px;border-right:1px solid var(--border)}
+#params{--w:276px;border-left:1px solid var(--border)}
+.ph{height:35px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 20px;
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#bbbbbb}
+.x{width:22px;height:22px;border:0;background:none;color:var(--dim);border-radius:5px;display:grid;place-items:center;
+  cursor:pointer;opacity:0;transition:opacity .15s,background .15s;outline:none}
+.panel:hover .x{opacity:1}
+.x:hover{background:#ffffff14;color:var(--fg)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.scroll::-webkit-scrollbar{width:10px}
+.scroll::-webkit-scrollbar-thumb{background:#79797955;border:3px solid var(--side);border-radius:6px}
+
+/* tree */
+.grp{height:24px;display:flex;align-items:center;gap:2px;padding-left:10px;cursor:pointer;color:var(--dim)}
+.grp:hover{color:var(--fg)}
+.grp svg{transition:transform .15s}
+.grp.collapsed svg{transform:rotate(-90deg)}
+.grp.collapsed + .items{display:none}
+.item{height:26px;display:flex;align-items:center;padding-left:34px;cursor:pointer;color:var(--fg);
+  border-left:2px solid transparent;white-space:nowrap}
+.item:hover{background:var(--hover)}
+.item.sel{background:var(--sel);border-left-color:var(--accent);color:#fff}
+
+/* viewport */
+#view{flex:1;position:relative;min-width:0}
+#view canvas{display:block;width:100%;height:100%;outline:none}
+#title{position:absolute;left:22px;top:15px;font-size:15px;color:#e2e2e2;letter-spacing:.01em;pointer-events:none}
+#spin{position:absolute;right:18px;bottom:16px;width:14px;height:14px;border-radius:50%;
+  border:1.5px solid #ffffff1f;border-top-color:#4fc1ff;animation:sp .8s linear infinite;opacity:0;transition:opacity .25s;pointer-events:none}
+#spin.on{opacity:1}
+#toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2;white-space:nowrap}
+#toolbar.low{top:44px}
+#toolbar:empty{display:none}
+.seg{display:flex;gap:1px;padding:2px;border-radius:8px;background:rgba(45,45,48,.78);border:1px solid #3c3c3c;
+  backdrop-filter:blur(14px) saturate(1.4);-webkit-backdrop-filter:blur(14px) saturate(1.4);box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.seg button{height:24px;min-width:30px;padding:0 9px;border:0;border-radius:6px;background:none;color:#b5b5b5;font-size:12px;
+  display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;outline:none;transition:background .12s,color .12s}
+.seg button:hover{background:#ffffff12;color:#e8e8e8}
+.seg button.on{background:#5a5a5f;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.dot{width:15px;height:15px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:12px;line-height:1;font-weight:600}
+.dot.pos{background:#f48771}.dot.neg{background:#c586c0}
+.sw{width:26px;height:15px;border-radius:8px;background:#4a4a4f;position:relative;transition:background .18s}
+.sw i{position:absolute;left:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#e6e6e6;transition:transform .18s}
+.seg button.on .sw{background:var(--accent)}
+.seg button.on .sw i{transform:translateX(11px)}
+.seg button[data-act=circuit].on{background:none;box-shadow:none}
+#hint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);font-size:12px;color:#7a7a7a;white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .4s}
+#hint.on{opacity:1}
+#offs{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.offi{position:absolute;left:0;top:0;width:0;height:0}
+.offi::after{content:"";position:absolute;left:-7px;top:-6px;border-left:12px solid var(--c);border-top:6px solid transparent;border-bottom:6px solid transparent;
+  filter:drop-shadow(0 0 3px rgba(0,0,0,.6));opacity:.85}
+.offi.sel::after{border-left-width:15px;opacity:1}
+.seg button.dis{opacity:.32;pointer-events:none}
+.seg button.accent{color:#fff;background:var(--accent)}
+.seg button.accent:hover{background:#1a8ad4}
+/* charge list + inspector */
+.sech{display:flex;align-items:center;justify-content:space-between;padding-right:14px}
+.sbtn{display:flex;gap:4px}
+.sbtn button,.ib{border:0;background:none;padding:3px;border-radius:5px;cursor:pointer;color:var(--dim);display:grid;place-items:center;outline:none}
+.sbtn button:hover,.ib:hover{background:#ffffff14;color:var(--fg)}
+.sbtn button:disabled{opacity:.35;pointer-events:none}
+.clist{display:flex;flex-direction:column;gap:1px;margin:2px -8px 0}
+.empty{color:var(--dim);font-size:12px;padding:6px 8px}
+.crow{display:flex;align-items:center;gap:8px;height:28px;padding:0 4px 0 8px;border-radius:6px;cursor:pointer}
+.crow:hover{background:var(--hover)}
+.crow.sel{background:var(--sel);box-shadow:inset 2px 0 var(--accent)}
+.crow.hid .dot,.crow.hid .cname{opacity:.4}
+.cname{color:#e6e6e6;width:24px}
+.cmeta{flex:1;color:var(--dim);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .ib{opacity:0}.crow:hover .ib,.crow.hid [data-eye]{opacity:1}
+.mseg{display:flex;background:#2d2d30;border:1px solid #3c3c3c;border-radius:6px;padding:1px;gap:1px}
+.mseg button{border:0;background:none;color:#b5b5b5;font-size:11.5px;height:20px;min-width:24px;padding:0 6px;border-radius:4px;cursor:pointer;outline:none}
+.mseg button:hover{color:#fff;background:#ffffff10}
+.mseg button.on{background:#5a5a5f;color:#fff}
+.mseg button:disabled{pointer-events:none}
+.mseg button:disabled:not(.on){opacity:.4}
+#insp .trow{gap:6px}
+#insp .trow>span:first-child{flex:1}
+.padwrap{display:grid;place-items:center;padding:8px 0 4px}
+.pad{touch-action:none;user-select:none}
+.pad.live{cursor:crosshair}
+.pring{fill:none;stroke:#333336;stroke-width:1}
+.pring.outer{fill:#1e1e1e;stroke:#4a4a4f}
+.pax{stroke:#3c3c40;stroke-width:1}
+.plab{fill:#858585;font-size:10px}
+.pb{stroke:#3794ff;stroke-width:1.5;stroke-dasharray:3 3;opacity:.8}
+.pblab{fill:#3794ff;font-size:10px}
+.pbsym{fill:none;stroke:#3794ff;stroke-width:1.3}.pbdot{fill:#3794ff}.pbx{stroke:#3794ff;stroke-width:1.3}
+.pv{stroke-width:2.2;stroke-linecap:round}
+.ph{stroke:#fff;stroke-width:1.5}
+#insp input:disabled{opacity:.45;cursor:default}
+.rgrid{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:10px 0 2px;font-size:12px;color:var(--dim)}
+.rgrid b{font-weight:400;color:#e0e0e0;text-align:right;font-variant-numeric:tabular-nums}
+.note{margin-top:10px;font-size:12px;color:var(--dim)}
+.btn.danger{color:#f48771}
+.btn.danger:hover{border-color:#f4877166}
+.pgrid{display:flex;flex-wrap:wrap;gap:6px}
+.pgrid .btn{margin:0;width:auto;flex:1 1 auto;padding:0 12px;white-space:nowrap}
+.tabs{display:flex;gap:2px;margin-left:-8px;height:100%}
+.tabs button{border:0;background:none;color:var(--dim);font:inherit;letter-spacing:inherit;text-transform:inherit;padding:0 8px;cursor:pointer;
+  position:relative;display:flex;align-items:center;gap:6px;outline:none}
+.tabs button:hover{color:#cfcfcf}
+.tabs button.on{color:#e8e8e8}
+.tabs button.on::after{content:"";position:absolute;left:8px;right:8px;bottom:0;height:1px;background:var(--accent)}
+.badge{min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#4d4d52;color:#fff;font-size:10px;letter-spacing:0;display:grid;place-items:center}
+.badge[hidden]{display:none}
+.simrow{display:flex;gap:6px}
+.simstat{margin-top:8px;font-size:12px;color:var(--dim);line-height:1.5}.simstat b{color:#e0e0e0;font-weight:500}
+#hud{position:absolute;right:14px;top:52px;width:380px;padding:10px 12px 10px;border-radius:12px;background:rgba(30,30,32,.82);border:1px solid #3c3c3c;
+  backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:3;font-size:12px}
+#hud[hidden]{display:none}
+#hud.docked{position:static;width:auto;margin:0;padding:12px 20px 16px;border:0;border-bottom:1px solid var(--border);border-radius:0;
+  background:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+#hud.docked .hud-row{flex-direction:column;align-items:center;gap:10px}
+#hud.docked .hud-num{width:100%}
+#hud.docked .hud-leg span{margin-left:0;width:100%}
+.hud-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#hudq{display:flex;align-items:center;gap:7px;color:#e8e8e8;font-weight:500}
+.hud-sub{flex:1;color:var(--dim);font-size:11px}
+.hud-row{display:flex;gap:12px}
+.hud-num{flex:1;display:grid;grid-template-columns:max-content 1fr;align-content:start;gap:3px 8px;font-size:11.5px;color:var(--dim)}
+.hud-num b{color:#e6e6e6;font-weight:400;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud-num .cb{color:#4fc1ff}.hud-num .cf{color:#dcdcaa}.hud-num .ce{color:#89d185}
+.hud-leg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0 4px;color:var(--dim);font-size:11px}
+.hud-leg i{width:12px;height:3px;border-radius:2px;display:inline-block;margin-left:4px}
+.hud-leg span{margin-left:auto}
+.kb{background:#4fc1ff}.kf{background:#dcdcaa}.ke{background:#89d185}.k1{background:#f48771}.k2{background:#c586c0}.k3{background:rgba(55,148,255,.5);height:8px!important}
+#hudc{width:100%;height:75px;display:block;border-radius:6px;background:#1b1b1d}
+#accscope{width:100%;height:78px;display:block;border-radius:6px;background:#1b1b1d;margin-top:8px}
+.sclg{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;font-size:11px;color:var(--dim);margin-top:5px}
+.sclg i{width:12px;height:3px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+.fk.fe i,.fk.fe i::after{background:#89d185;border-left-color:#89d185}.fk.fe i::after{background:none}
+.hx-bg{fill:#1b1b1d}.hx-ax{stroke:#333;stroke-width:1}.hx-l{fill:#6f6f6f;font-size:10px}
+.hx-pipe{fill:none;stroke:#5a5f66;stroke-width:1.2;stroke-dasharray:3 3}.hx-orb{fill:#5a5f66}
+.hx-b{stroke:#4fc1ff;stroke-width:2.2;stroke-linecap:round}.hx-bf{fill:#4fc1ff}
+.hx-f{stroke:#dcdcaa;stroke-width:2.6;stroke-linecap:round}.hx-ff{fill:#dcdcaa}
+.hx-e{stroke:#89d185;stroke-width:2.6;stroke-linecap:round}.hx-ef{fill:#89d185}
+.hx-q.pos{fill:#f48771}.hx-q.neg{fill:#c586c0}.hx-q{stroke:#fff;stroke-width:1.2}.hx-x{stroke:#fff;stroke-width:1.3}
+.fk{display:flex;align-items:center;gap:8px}
+.fk i{width:14px;height:2px;background:#dcdcaa;border-radius:1px;position:relative}
+.fk i::after{content:"";position:absolute;right:-3px;top:-3px;border-left:5px solid #dcdcaa;border-top:4px solid transparent;border-bottom:4px solid transparent}
+.simrow .btn{display:flex;align-items:center;justify-content:center;gap:6px;flex:1}
+.simrow .btn:disabled{opacity:.4;pointer-events:none}
+.simrow [data-sim=play]:not(:disabled){background:var(--accent);border-color:var(--accent);color:#fff}
+.simrow [data-sim=play]:not(:disabled):hover{background:#1a8ad4}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* parameters */
+.plist{padding:2px 20px 4px}
+.sec{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#bbbbbb;padding:18px 20px 4px}
+.row{padding:8px 0 6px}
+.lab{display:flex;justify-content:space-between;color:#c5c5c5;margin-bottom:7px}
+.lab span:first-child{cursor:default}
+.val{color:#e8e8e8;font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:12px;background:transparent;margin:0;cursor:pointer;outline:none;--p:50%;display:block}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;
+  background:linear-gradient(var(--accent),var(--accent)) 0/var(--p) 100% no-repeat,var(--track)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#e0e0e0;
+  margin-top:-4px;border:0;transform:scale(0);transition:transform .14s}
+.row:hover input[type=range]::-webkit-slider-thumb,input[type=range]:active::-webkit-slider-thumb,input[type=range]:focus-visible::-webkit-slider-thumb{transform:scale(1)}
+input[type=range]::-moz-range-track{height:3px;border-radius:2px;background:var(--track)}
+input[type=range]::-moz-range-progress{height:3px;border-radius:2px;background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#e0e0e0;border:0}
+.trow{display:flex;justify-content:space-between;align-items:center;height:29px;color:#c5c5c5}
+.tg{border:0;background:none;color:var(--accent2);cursor:pointer;padding:2px 0 2px 12px;outline:none}
+.tg.off{color:var(--dim)}
+.tg:hover{text-decoration:underline;text-underline-offset:3px}
+.btn{margin:10px 0 2px;width:100%;height:28px;border-radius:6px;border:1px solid #3c3c3c;background:#2d2d30;color:var(--fg);cursor:pointer;outline:none}
+.btn:hover{background:#37373d;border-color:#4a4a4a}
+.btn:active{background:#3f3f46}
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="activity">
+    <button class="act on" id="actExplorer" title="Explorer (⌘B)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 3.5h6l4 4v11.5H9z"/><path d="M15 3.5v4h4"/><path d="M6 7v14h10"/></svg>
+    </button>
+    <button class="act on" id="actParams" title="Parameters (⌥⌘B)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <button class="act" id="actReset" title="Reset view">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/><circle cx="12" cy="12" r="2.5"/></svg>
+    </button>
+  </nav>
+
+  <aside id="explorer" class="panel"><div class="panel-inner">
+    <div class="ph"><span>Explorer</span>
+      <button class="x" data-close="explorer" title="Close (⌘B)"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+    </div>
+    <div class="scroll" id="tree"></div>
+  </div></aside>
+
+  <main id="view">
+    <div id="title"></div>
+    <div id="toolbar"></div>
+    <div id="hint">Click to place a charge · drag a charge to give it velocity in the plane · right-click removes it</div>
+    <div id="offs"></div>
+    <div id="hud" hidden>
+      <div class="hud-h"><span id="hudq"></span><span class="hud-sub">drag to look around · scroll to zoom · double-click resets</span><button class="ib" title="Exit (Esc)" onclick="this.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))">✕</button></div>
+      <div class="hud-row"><svg id="hudx" viewBox="0 0 176 176" width="176" height="176"></svg><div class="hud-num" id="hudnum"></div></div>
+      <div class="hud-leg"><i class="kb"></i>B across the path<i class="kf"></i>force (magnetic)<i class="ke"></i>force (electric)<span>⊗ = direction of travel</span></div>
+      <canvas id="hudc" width="680" height="150"></canvas>
+      <div class="hud-leg" id="hudlab"></div>
+    </div>
+    <div id="spin"></div>
+  </main>
+
+  <aside id="params" class="panel"><div class="panel-inner">
+    <div class="ph"><div class="tabs"><button data-tab="field" class="on">Field</button><button data-tab="charges">Charges<span class="badge" hidden></span></button></div>
+      <button class="x" data-close="params" title="Close (⌥⌘B)"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+    </div>
+    <div class="scroll" id="tabField">
+      <div class="plist" id="plist"></div>
+      <div class="sec">Display</div>
+      <div class="plist" id="dlist"></div>
+    </div>
+    <div class="scroll" id="tabCharges" hidden><div id="ppanel"></div></div>
+  </div></aside>
+</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* =====================================================================
+   PHYSICS CORE (runs in a Web Worker)
+   Every conductor is a chain of straight segments. The Biot–Savart law
+       dB = (μ0/4π) I dl × r̂ / r²
+   is integrated exactly over each straight segment and summed:
+       B = (μ0 I/4π) (r1 × r2)(|r1|+|r2|) / (|r1||r2|(|r1||r2| + r1·r2))
+   with r1, r2 the vectors from the segment ends to the field point.
+   Inside the wire (radius RW) the field is smoothly regularised.
+   Field lines: RK4 integration along B̂. Seeds: placed at equal-flux
+   intervals along straight "rakes" on symmetry planes, so line spacing
+   is inversely proportional to |B|.
+   ===================================================================== */
+function workerCore(){
+  let S=null, NS=0, RW=0.03;
+  const o=new Float64Array(4);
+
+  function field(px,py,pz){
+    let bx=0,by=0,bz=0,dmin=1e30;
+    const s=S, a2=RW*RW, e=NS*7;
+    for(let j=0;j<e;j+=7){
+      const dx=s[j+3],dy=s[j+4],dz=s[j+5];
+      const r1x=px-s[j],r1y=py-s[j+1],r1z=pz-s[j+2];
+      const r2x=r1x-dx,r2y=r1y-dy,r2z=r1z-dz;
+      const L2=dx*dx+dy*dy+dz*dz;
+      let t=(r1x*dx+r1y*dy+r1z*dz)/L2; t=t<0?0:(t>1?1:t);
+      const qx=r1x-t*dx,qy=r1y-t*dy,qz=r1z-t*dz,q2=qx*qx+qy*qy+qz*qz;
+      if(q2<dmin)dmin=q2;
+      const m1=Math.sqrt(r1x*r1x+r1y*r1y+r1z*r1z), m2=Math.sqrt(r2x*r2x+r2y*r2y+r2z*r2z);
+      const cx=r1y*r2z-r1z*r2y, cy=r1z*r2x-r1x*r2z, cz=r1x*r2y-r1y*r2x;
+      const den=m1*m2*(m1*m2+r1x*r2x+r1y*r2y+r1z*r2z);
+      if(den<1e-24)continue;
+      const p2=(cx*cx+cy*cy+cz*cz)/L2;            // squared distance to the segment's line
+      const f=s[j+6]*(m1+m2)/den*(p2/(p2+a2));     // finite wire radius regularisation
+      bx+=f*cx; by+=f*cy; bz+=f*cz;
+    }
+    o[0]=bx*1e-7; o[1]=by*1e-7; o[2]=bz*1e-7; o[3]=Math.sqrt(dmin); // μ0/4π = 1e-7
+  }
+
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+  function run(seed,dir,d,closeCheck){
+    const bx0=d.box.min, bx1=d.box.max, H=d.H;
+    const hMin=H*0.0015, hMax=H*0.02, maxLen=d.maxLen, tol0=0.015*H;
+    const P=[],M=[];
+    let x=seed[0],y=seed[1],z=seed[2],travel=0,closed=false,why='steps',prevD=1e30;
+    for(let n=0;n<4000;n++){
+      field(x,y,z);
+      const m=Math.hypot(o[0],o[1],o[2]);
+      P.push(x,y,z); M.push(m);
+      if(m<1e-14){why='weak';break}
+      if(n>0&&(x<bx0[0]||y<bx0[1]||z<bx0[2]||x>bx1[0]||y>bx1[1]||z>bx1[2])){why='box';break}
+      if(travel>maxLen){why='len';break}
+      const ah=Math.min(hMax,Math.max(hMin,0.3*o[3])), h=ah*dir;
+      const k1x=o[0]/m,k1y=o[1]/m,k1z=o[2]/m;
+      field(x+.5*h*k1x,y+.5*h*k1y,z+.5*h*k1z); let mm=Math.hypot(o[0],o[1],o[2])||1e-30;
+      const k2x=o[0]/mm,k2y=o[1]/mm,k2z=o[2]/mm;
+      field(x+.5*h*k2x,y+.5*h*k2y,z+.5*h*k2z); mm=Math.hypot(o[0],o[1],o[2])||1e-30;
+      const k3x=o[0]/mm,k3y=o[1]/mm,k3z=o[2]/mm;
+      field(x+h*k3x,y+h*k3y,z+h*k3z); mm=Math.hypot(o[0],o[1],o[2])||1e-30;
+      const k4x=o[0]/mm,k4y=o[1]/mm,k4z=o[2]/mm;
+      x+=h/6*(k1x+2*k2x+2*k3x+k4x);
+      y+=h/6*(k1y+2*k2y+2*k3y+k4y);
+      z+=h/6*(k1z+2*k2z+2*k3z+k4z);
+      travel+=ah;
+      if(closeCheck&&travel>Math.max(8*ah,4*tol0)){
+        // close the loop when the line returns to its seed (allowing for small drift)
+        const dd=Math.hypot(x-seed[0],y-seed[1],z-seed[2]),loose=Math.max(3*ah,2.5*tol0);
+        if(dd<Math.max(1.5*ah,tol0)||(dd<loose&&dd>prevD)){P.push(seed[0],seed[1],seed[2]);M.push(M[0]);closed=true;why='closed';break}
+        prevD=dd;
+      }
+    }
+    return {P,M,closed,why};
+  }
+
+  function traceLine(seed,d){
+    const f=run(seed,1,d,true);
+    let P=f.P,M=f.M;
+    if(!f.closed&&f.why!=='len'){
+      const b=run(seed,-1,d,false), n=b.M.length, P2=[], M2=[];
+      for(let i=n-1;i>=1;i--){P2.push(b.P[3*i],b.P[3*i+1],b.P[3*i+2]);M2.push(b.M[i])}
+      P=P2.concat(P); M=M2.concat(M);
+    }
+    if(M.length<3)return null;
+    return {p:new Float32Array(P),b:new Float32Array(M),closed:f.closed};
+  }
+
+  function compute(d,post){
+    S=d.segs; NS=S.length/7; RW=d.rw;
+    if(d.seedPts){traceAll(d.seedPts.map(q=>q.slice()),d,post);return}
+    // Seed rakes: straight seed lines on symmetry planes. Field lines start at equal
+    // flux intervals along them, so spacing between neighbouring lines ∝ 1/|B|.
+    const K=600, smp=[];
+    for(let r=0;r<d.rakes.length;r++){
+      const rk=d.rakes[r], a=rk.a, b=rk.b, n=rk.n;
+      const ds=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2])/K;
+      for(let i=0;i<K;i++){
+        const t=(i+.5)/K, x=a[0]+(b[0]-a[0])*t, y=a[1]+(b[1]-a[1])*t, z=a[2]+(b[2]-a[2])*t;
+        field(x,y,z);
+        const v=o[3]<4*RW?0:(o[0]*n[0]+o[1]*n[1]+o[2]*n[2])*ds;
+        smp.push({r,i,v});
+      }
+    }
+    // count each closed line once: on each rake use only the crossings in its dominant direction
+    const sgn=d.rakes.map((_,r)=>{let pos=0,neg=0;for(const q of smp)if(q.r===r){if(q.v>0)pos+=q.v;else neg-=q.v}return pos>=0.2*neg?1:-1});
+    for(const q of smp)q.v*=sgn[q.r];
+    // 'flux' mode: weight = flux, so line spacing ∝ 1/|B|.
+    // 'even' mode: weight = length, so lines are evenly spaced along each rake
+    // (skipping the near-zero fringe so weak stray field doesn't get lines of its own).
+    const even=d.mode==='even', vmax=d.rakes.map(()=>0);
+    for(const q of smp)if(q.v>vmax[q.r])vmax[q.r]=q.v;
+    for(const q of smp)q.w=even?(q.v>0.03*vmax[q.r]?1:0):Math.max(0,q.v);
+    const C=new Float64Array(smp.length); let tot=0;
+    for(let k=0;k<smp.length;k++){tot+=smp[k].w;C[k]=tot}
+    if(tot<=0){post({type:'done',job:d.job});return}
+    const seeds=[]; let k=0;
+    for(let s=0;s<d.nSeeds;s++){
+      const target=(s+.5)/d.nSeeds*tot;
+      while(k<smp.length-1&&C[k]<target)k++;
+      const q=smp[k], w=Math.max(1e-300,q.w), f=Math.min(1,Math.max(0,(target-(C[k]-w))/w));
+      const rk=d.rakes[q.r], t=(q.i+f)/K;
+      seeds.push([rk.a[0]+(rk.b[0]-rk.a[0])*t, rk.a[1]+(rk.b[1]-rk.a[1])*t, rk.a[2]+(rk.b[2]-rk.a[2])*t]);
+    }
+    traceAll(seeds,d,post);
+  }
+  function traceAll(seeds,d,post){
+    let batch=[],bufs=[];
+    for(let s=0;s<seeds.length;s++){
+      const L=traceLine(seeds[s],d);
+      if(L){batch.push(L);bufs.push(L.p.buffer,L.b.buffer)}
+      if(batch.length>=6||s===seeds.length-1){
+        if(batch.length)post({type:'lines',job:d.job,lines:batch},bufs);
+        batch=[];bufs=[];
+      }
+    }
+    post({type:'done',job:d.job});
+  }
+
+  if(typeof WorkerGlobalScope!=='undefined'&&self instanceof WorkerGlobalScope){
+    self.onmessage=e=>compute(e.data,(m,tr)=>self.postMessage(m,tr||[]));
+  }
+  // Vector potential of the same segments: A = (μ0 I/4π) d̂ ln((|r1|+|r2|+L)/(|r1|+|r2|−L)).
+  // Its time derivative gives the electric field induced by changing currents, E = −∂A/∂t.
+  const oa=new Float64Array(3);
+  function vpot(px,py,pz){
+    let ax=0,ay=0,az=0;const s=S,e=NS*7;
+    for(let j=0;j<e;j+=7){
+      const dx=s[j+3],dy=s[j+4],dz=s[j+5],L=Math.sqrt(dx*dx+dy*dy+dz*dz);
+      const r1x=px-s[j],r1y=py-s[j+1],r1z=pz-s[j+2],r2x=r1x-dx,r2y=r1y-dy,r2z=r1z-dz;
+      const m=Math.sqrt(r1x*r1x+r1y*r1y+r1z*r1z)+Math.sqrt(r2x*r2x+r2y*r2y+r2z*r2z);
+      const g=s[j+6]/L*Math.log((m+L)/Math.max(m-L,RW*RW/L));
+      ax+=g*dx;ay+=g*dy;az+=g*dz;
+    }
+    oa[0]=ax*1e-7;oa[1]=ay*1e-7;oa[2]=az*1e-7;
+  }
+  compute.A=(x,y,z)=>{vpot(x,y,z);return oa};
+  compute.load=(segs,rw)=>{S=segs;NS=segs.length/7;RW=rw};
+  compute.at=(x,y,z)=>{field(x,y,z);return o};
+  compute.o=o;
+  return compute;
+}
+
+/* ===================================================================== */
+const RW=0.03;
+const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add=(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
+const scl=(a,s)=>[a[0]*s,a[1]*s,a[2]*s];
+const crs=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return scl(a,1/l)};
+function subdiv(pts,closed,maxL){
+  const out=[],n=pts.length,m=closed?n:n-1;
+  for(let i=0;i<m;i++){
+    const a=pts[i],b=pts[(i+1)%n],k=Math.max(1,Math.ceil(Math.hypot(...sub(b,a))/maxL));
+    for(let j=0;j<k;j++)out.push(add(a,scl(sub(b,a),j/k)));
+  }
+  if(!closed)out.push(pts[n-1]);
+  return out;
+}
+const boxOf=(hx,hy,hz)=>({min:[-hx,-hy,-hz],max:[hx,hy,hz]});
+const circlePts=(R,y,M)=>{const a=[];for(let i=0;i<M;i++){const f=2*Math.PI*i/M;a.push([R*Math.cos(f),y,-R*Math.sin(f)])}return a};
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- circular accelerator (FODO ring, LHC-style cos-θ magnets) ----------
+   Each magnet is built from conductors running along the beam at radius a around the pipe.
+   Currents follow cos(nφ) around the aperture (n=1 dipole, n=2 quadrupole), the classic
+   cos-θ / cos-2θ windings of superconducting accelerator magnets. Opposite-current
+   conductors are joined into closed loops by arcs over the magnet ends. Everything is
+   ordinary Biot–Savart; there is no iron. */
+const ACC_R=5,ACC_A=.22;
+function accelGeometry(N){
+  const Lc=2*Math.PI*ACC_R/N,mags=[];
+  for(let c=0;c<N;c++)for(const [f,type] of [[0,'QF'],[.25,'D'],[.5,'QD'],[.75,'D']])
+    mags.push({type,th:2*Math.PI*(c+f)/N,L:type==='D'?.3*Lc:.1*Lc});
+  return {mags,Lc};
+}
+function magnetFrame(m){
+  const R=ACC_R;
+  return {c:[R*Math.cos(m.th),0,R*Math.sin(m.th)],t:[-Math.sin(m.th),0,Math.cos(m.th)],r:[Math.cos(m.th),0,Math.sin(m.th)],y:[0,1,0]};
+}
+function magnetLoops(m,I){
+  const {c,t,r,y}=magnetFrame(m),a=ACC_A,n=m.type==='D'?1:2;
+  const phis=Array.from({length:8},(_,k)=>(k+.5)*Math.PI/4);
+  const pairs=n===1?[[0,4],[1,5],[2,6],[3,7]]:[[0,2],[1,3],[4,6],[5,7]];
+  const at=(phi,s)=>add(add(c,scl(t,s)),add(scl(r,a*Math.cos(phi)),scl(y,a*Math.sin(phi))));
+  return pairs.map(([k1,k2])=>{
+    const p1=phis[k1],p2=phis[k2],w=Math.cos(n*p1),L2=m.L/2,K=Math.max(3,Math.round((p2-p1)/(Math.PI/12)));
+    const pts=[at(p1,-L2),at(p1,L2)];
+    for(let j=1;j<K;j++)pts.push(at(p1+(p2-p1)*j/K,L2));
+    pts.push(at(p2,L2),at(p2,-L2));
+    for(let j=K-1;j>0;j--)pts.push(at(p1+(p2-p1)*j/K,-L2));
+    return {pts,closed:true,I:I*w};
+  });
+}
+// Design: pick q/m so that ∮(q/m)B_y ds / v = 2π (one full turn of bending from the dipoles),
+// and the quadrupole current for thin-lens FODO with 90° phase advance per cell.
+const ACC_DESIGN={};
+function accelDesign(N){
+  if(ACC_DESIGN[N])return ACC_DESIGN[N];
+  const {mags,Lc}=accelGeometry(N),core=workerCore(),R=ACC_R,v0=2,Id=5;
+  core.load(buildSegs(mags.filter(m=>m.type==='D').flatMap(m=>magnetLoops(m,1))),RW);
+  let S=0;const M=1440;
+  for(let i=0;i<M;i++){const th=2*Math.PI*(i+.5)/M,o=core.at(R*Math.cos(th),0,R*Math.sin(th));S+=o[1]*R*2*Math.PI/M}
+  const sD=Math.sign(S)||1,qm=2*Math.PI*v0/(Math.abs(S)*Id);
+  core.load(buildSegs(magnetLoops(mags[0],1)),RW);       // QF centred at θ = 0, beam along +z
+  const d=.02,K=600,span=Lc/2;let FB=0;
+  for(let i=0;i<K;i++){const s=-span/2+span*(i+.5)/K,o=core.at(R+d,0,s);FB+=o[1]*span/K}
+  const invf=qm/v0*FB/d,sQ=Math.sign(invf)||1;            // 1/f per amp (> 0: focusing for + charges)
+  const target=4*Math.sin(Math.PI/8)/Lc;                   // f = Lc / (4 sin(μ/2)), μ = 90°
+  core.load(buildSegs(magnetLoops(mags[1],1)),RW);
+  const Bd=Math.abs(core.at(...magnetFrame(mags[1]).c)[1])*Id;
+  return ACC_DESIGN[N]={sD,Id,qm,v0,sQ,Iq:target/Math.abs(invf),Lc,mags,Bd};
+}
+
+/* ---------- parameters ---------- */
+const m1=v=>v.toFixed(1)+' m', m2=v=>v.toFixed(2)+' m', int=v=>String(Math.round(v));
+const prm=(key,label,min,max,step,value,fmt,extra)=>({key,label,min,max,step,value,fmt,...extra});
+const pI=()=>prm('I','Current',0.5,20,0.5,5,v=>v.toFixed(1)+' A');
+const pN=()=>prm('n','Line density',4,80,1,22,int);
+const pPl=()=>prm('planes','Planes',1,6,1,2,int);
+// diameters across the coil's interior (each closed line crosses once there), rotated about the
+// y-axis and angled so no plane is seen edge-on from the default camera
+const axialRakes=(P,E,th0=140,y=0)=>Array.from({length:P},(_,j)=>{const t=th0*Math.PI/180+(j-(P-1)/2)*Math.PI/P,c=Math.cos(t),s=Math.sin(t);return {a:[-E*c,y,-E*s],b:[E*c,y,E*s],n:[0,1,0]}});
+
+/* ---------- visualisations ----------
+   circuit:true → the Circuit switch applies. With it off, only the conductor itself enters the
+   Biot–Savart sum (an isolated finite segment, a closed ring, an open helix…); with it on, the
+   leads, return wire and battery are part of the current path and of the sum. */
+const VIS=[
+{id:'infwire',item:'Infinite',title:'Infinite wire',params:[pI(),pN()],
+ build(p){
+  return {phys:[{pts:[[0,-500,0],[0,500,0]],closed:false,I:p.I}],
+    display:[{pts:subdiv([[0,-40,0],[0,40,0]],false,.25),closed:false,main:true}],
+    rakes:[{a:[-4.6,0,0],b:[4.6,0,0],n:[0,0,1]}],
+    box:boxOf(6,4,6)};
+ }},
+{id:'finwire',item:'Finite',title:'Finite wire',circuit:true,
+ params:[pI(),prm('L','Length',1,8,.1,4,m1),prm('W','Return distance',1,6,.1,3.5,m1,{circuitOnly:true}),pN(),prm('levels','Levels',1,9,1,5,int)],
+ build(p,st){
+  const x0=-p.W/2,x1=p.W/2,y0=-p.L/2,y1=p.L/2;
+  const A=[x0,y0,0],B=[x0,y1,0],C=[x1,y1,0],D=[x1,y0,0];
+  const rakes=Array.from({length:p.levels},(_,j)=>{const y=p.levels<2?0:p.L/2*.85*(2*j/(p.levels-1)-1);return {a:[x0-2.6,y,0],b:[x0+p.W*.45,y,0],n:[0,0,1]}});
+  // whole circuit: rakes that cross both vertical legs, and both horizontal legs, so every side gets its field
+  const nv=Math.max(1,Math.round(p.levels*p.W/p.L)),fullRakes=[
+    ...Array.from({length:p.levels},(_,j)=>{const y=p.levels<2?0:p.L/2*.8*(2*j/(p.levels-1)-1);return {a:[x0-2.6,y,0],b:[x1+2.6,y,0],n:[0,0,1]}}),
+    ...Array.from({length:nv},(_,j)=>{const x=nv<2?0:p.W/2*.7*(2*j/(nv-1)-1);return {a:[x,y0-2.4,0],b:[x,y1+2.4,0],n:[0,0,1]}})];
+  if(!st.display.circuit){
+    const rk=rakes.map(r=>({a:r.a,b:[x0+2.6,r.b[1],0],n:r.n}));
+    return {phys:[{pts:[A,B],closed:false,I:p.I}],display:[{pts:subdiv([A,B],false,.1),closed:false,main:true}],
+      rakes:rk,box:{min:[x0-3.2,y0-2.8,-3.6],max:[x0+3.2,y1+2.8,3.6]}};
+  }
+  return {phys:[{pts:[A,B,C,D],closed:true,I:p.I}],
+    display:[{pts:subdiv([A,B],false,.1),closed:false,main:true},{pts:subdiv([B,C,D,A],false,.1),closed:false,main:false}],
+    battery:{pos:[x1,0,0],dir:[0,-1,0]},
+    rakes:fullRakes,box:boxOf(p.W/2+3.2,p.L/2+2.8,3.6)};
+ }},
+{id:'random',item:'Random circuit',title:'Random circuit',random:true,
+ params:[pI(),prm('K','Complexity',1,6,1,3,int),prm('size','Size',1,3,.1,2,m1),pN()],
+ build(p,st){
+  const rng=mulberry32(st.seed), g=()=>{let u=0;while(!u)u=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rng())};
+  const K=Math.round(p.K), co=[0,1,2].map(()=>Array.from({length:K},(_,k)=>[g()/(k+1),g()/(k+1)]));
+  const M=320; let pts=[];
+  for(let i=0;i<M;i++){const t=2*Math.PI*i/M;pts.push(co.map(row=>row.reduce((s,[a,b],k)=>s+a*Math.cos((k+1)*t)+b*Math.sin((k+1)*t),0)))}
+  const c=scl(pts.reduce(add,[0,0,0]),1/M);
+  pts=pts.map(q=>sub(q,c));
+  const R=Math.max(...pts.map(q=>Math.hypot(...q)));
+  pts=pts.map(q=>scl(q,p.size/R));
+  let A=[0,0,0]; for(let i=0;i<M;i++)A=add(A,crs(pts[i],pts[(i+1)%M]));
+  const n=nrm(A), u=nrm(crs(n,Math.abs(n[1])<.9?[0,1,0]:[1,0,0])), v=crs(n,u);
+  return {phys:[{pts,closed:true,I:p.I}],display:[{pts,closed:true,main:true}],
+    battery:{pos:pts[0],dir:nrm(sub(pts[1],pts[0]))},
+    rakes:[{a:scl(u,-p.size*1.6),b:scl(u,p.size*1.6),n},{a:scl(v,-p.size*1.6),b:scl(v,p.size*1.6),n}],
+    box:boxOf(p.size*2.1,p.size*2.1,p.size*2.1)};
+ }},
+{id:'loop',item:'Loop',title:'Circular loop',circuit:true,
+ params:[pI(),prm('R','Radius',.5,3,.05,1.5,m2),pN(),pPl()],
+ build(p,st){
+  const R=p.R,M=Math.max(96,Math.round(R*80)),box=boxOf(R*2.4+1.4,R*2+.9,R*2.4+1.4),rakes=axialRakes(p.planes,R);
+  if(!st.display.circuit){
+    const c=circlePts(R,0,M);
+    return {phys:[{pts:c,closed:true,I:p.I}],display:[{pts:c,closed:true,main:true}],rakes,box};
+  }
+  const gap=.045,d=Math.asin(gap/R),arc=[];
+  for(let i=0;i<=M;i++){const f=d+(2*Math.PI-2*d)*i/M;arc.push([R*Math.cos(f),0,-R*Math.sin(f)])}
+  const xc=R*Math.cos(d),xl=R+.5,xb=R+1.4,zb=.3;
+  const lead=[[xc,0,gap],[xl,0,gap],[xl+.25,0,zb],[xb,0,zb],[xb,0,-zb],[xl+.25,0,-zb],[xl,0,-gap],[xc,0,-gap]];
+  return {phys:[{pts:arc.concat(lead.slice(1,-1)),closed:true,I:p.I}],
+    display:[{pts:arc,closed:false,main:true},{pts:subdiv(lead,false,.08),closed:false,main:false}],
+    battery:{pos:[xb,0,0],dir:[0,0,-1]},rakes,box};
+ }},
+{id:'stacked',item:'Stacked loops',title:'Stacked loops',circuit:true,
+ params:[pI(),prm('N','Loops',1,20,1,6,int),prm('R','Radius',.5,2.5,.05,1.2,m2),prm('s','Spacing',.06,1,.01,.1,m2),pN(),pPl()],
+ build(p,st){
+  const N=Math.round(p.N),R=p.R,s=p.s,M=Math.max(72,Math.round(R*70)),ys=k=>(k-(N-1)/2)*s;
+  const rakes=axialRakes(p.planes,R),box=boxOf(R*2.6,(N-1)*s/2+R*2,R*2.6);
+  if(!st.display.circuit){
+    const phys=[],display=[];
+    for(let k=0;k<N;k++){const c=circlePts(R,ys(k),M);phys.push({pts:c,closed:true,I:p.I});display.push({pts:c,closed:true,main:true})}
+    return {phys,display,rakes,box};
+  }
+  // in series: each ring has a small gap; a short jumper crosses it up to the next ring
+  const d=Math.asin(.045/R),path=[];
+  for(let k=0;k<N;k++)for(let i=0;i<=M;i++){const f=d+(2*Math.PI-2*d)*i/M;path.push([R*Math.cos(f),ys(k),-R*Math.sin(f)])}
+  const start=path[0],end=path[path.length-1],xr=R+1.2;
+  const top=[xr,Math.max(ys(N-1),.5),0],bot=[xr,Math.min(ys(0),-.5),0];
+  return {phys:[{pts:path.concat([top,bot]),closed:true,I:p.I}],
+    display:[{pts:path,closed:false,main:true},{pts:subdiv([end,top,bot,start],false,.1),closed:false,main:false}],
+    battery:{pos:[xr,0,0],dir:[0,-1,0]},rakes,box};
+ }},
+{id:'infsol',item:'Inf. solenoid',title:'Infinite solenoid',
+ params:[pI(),prm('R','Radius',.4,2,.05,1,m2),prm('tpm','Turns per metre',2,12,1,6,v=>v+' /m'),prm('rings','Rings',1,8,1,4,int)],
+ build(p){
+  // physics: a 40 m helix (≫ radius), so the visible 10 m window behaves as an infinite solenoid
+  const R=p.R,n=p.tpm,Y=20,Yv=5,T=Math.round(2*Y*n),phys=[],disp=[];
+  const hp=u=>{const f=2*Math.PI*u;return [R*Math.cos(f),-Y+u/n,-R*Math.sin(f)]};
+  for(let k=0;k<T;k++){
+    const m=Math.abs(-Y+(k+.5)/n)<8?24:10;
+    for(let j=0;j<m;j++)phys.push(hp(k+j/m));
+  }
+  phys.push(hp(T));
+  for(let u=(Y-Yv)*n;u<=(Y+Yv)*n+1e-9;u+=1/24)disp.push(hp(u));
+  // seeds on concentric circles in the mid cross-section; equal points per area (uniform B inside)
+  const K=Math.round(p.rings),seedPts=[[0,0,0]];
+  for(let k=1;k<=K;k++){const r=R*.86*k/K,m=6*k;for(let j=0;j<m;j++){const a=2*Math.PI*j/m+k*.37;seedPts.push([r*Math.cos(a),0,r*Math.sin(a)])}}
+  return {phys:[{pts:phys,closed:false,I:p.I}],display:[{pts:disp,closed:false,main:true}],
+    seedPts,box:boxOf(R+2.6,Yv,R+2.6),view:{dir:[.62,.62,.48],k:2.9}};
+ }},
+{id:'finsol',item:'Solenoid',title:'Finite solenoid',circuit:true,
+ params:[pI(),prm('N','Turns',2,60,1,12,int),prm('R','Radius',.3,2,.05,.8,m2),prm('Ls','Length',.5,8,.1,4,m1),pN(),pPl()],
+ build(p,st){
+  const N=Math.round(p.N),R=p.R,Ls=p.Ls,m=24,h=[];
+  for(let i=0;i<=N*m;i++){const u=i/m,f=2*Math.PI*u;h.push([R*Math.cos(f),-Ls/2+Ls*u/N,-R*Math.sin(f)])}
+  const rakes=axialRakes(p.planes,R),box=boxOf(R+3.4,Ls/2+2.6,R+3.4);
+  if(!st.display.circuit)return {phys:[{pts:h,closed:false,I:p.I}],display:[{pts:h,closed:false,main:true}],rakes,box};
+  const xr=R+1.4,top=[xr,Ls/2,0],bot=[xr,-Ls/2,0],start=h[0],end=h[h.length-1];
+  return {phys:[{pts:h.concat([top,bot]),closed:true,I:p.I}],
+    display:[{pts:h,closed:false,main:true},{pts:subdiv([end,top,bot,start],false,.1),closed:false,main:false}],
+    battery:{pos:[xr,0,0],dir:[0,-1,0]},rakes,box};
+ }},
+{id:'toroid',item:'Toroid',title:'Toroid',
+ params:[pI(),prm('N','Turns',6,80,1,24,int),prm('Rm','Major radius',1,3,.05,2,m2),prm('r','Minor radius',.2,1.2,.05,.6,m2),pN()],
+ build(p){
+  const N=Math.round(p.N),Rm=p.Rm,r=Math.min(p.r,.8*Rm),m=20,M=N*m,pts=[];
+  for(let i=0;i<M;i++){const t=2*Math.PI*i/m,f=t/N,q=Rm+r*Math.cos(t);pts.push([q*Math.cos(f),r*Math.sin(t),q*Math.sin(f)])}
+  return {phys:[{pts,closed:true,I:p.I}],display:[{pts,closed:true,main:true}],
+    rakes:[-.55,0,.55].map(f=>({a:[-(Rm+r)*1.3,f*r,0],b:[(Rm+r)*1.3,f*r,0],n:[0,0,1]}))
+      // plus one across the hole: the winding's net circular current gives an axial field there
+      .concat([{a:[-(Rm-r)*.95,0,0],b:[(Rm-r)*.95,0,0],n:[0,1,0]}]),
+    box:boxOf(Rm+r+1.3,r+1.3,Rm+r+1.3),maxLen:2*Math.PI*(Rm+r)*1.08};
+ }},
+{id:'accel',item:'Ring accelerator',title:'Circular accelerator',
+ params:[prm('cells','FODO cells',8,16,1,10,int),
+   prm('dip','Dipole current',80,120,1,100,v=>Math.round(v)+'% of design'),
+   prm('quad','Quadrupole current',0,200,1,100,v=>Math.round(v)+'% of design'),
+   prm('rf','RF energy gain / turn',0,60,1,0,v=>Math.round(v)+'% of injection energy',{live:true}),
+   prm('k','Field lines per magnet',0,8,1,4,int)],
+ build(p){
+  // ring of FODO cells: QF · dipole · QD · dipole, quadrupole polarity alternating
+  const N=Math.round(p.cells),D=accelDesign(N),Id=D.sD*D.Id*p.dip/100,Iq=D.sQ*D.Iq*p.quad/100,a=ACC_A,k=Math.round(p.k);
+  const phys=[],display=[],seedPts=[];
+  for(const m of D.mags){
+    const loops=magnetLoops(m,m.type==='D'?Id:m.type==='QF'?Iq:-Iq);phys.push(...loops);
+    for(const l of loops)display.push({pts:l.pts,closed:true,main:true});
+    const {c,r,y}=magnetFrame(m);
+    for(let i=0;i<k;i++){   // seeds in each magnet's mid cross-section
+      if(m.type==='D')seedPts.push(add(c,scl(r,a*.75*(2*(i+.5)/k-1))));
+      else{const f=(i+.5)*2*Math.PI/k;seedPts.push(add(c,add(scl(r,.5*a*Math.cos(f)),scl(y,.5*a*Math.sin(f)))))}
+    }
+  }
+  const Lc=D.Lc,thc=2*Math.PI*.425/N,cav={th:thc,L:.04*Lc,c:[ACC_R*Math.cos(thc),0,ACC_R*Math.sin(thc)],t:[-Math.sin(thc),0,Math.cos(thc)]};
+  return {phys,display,seedPts,accel:{R:ACC_R,a,qm:D.qm,v0:D.v0,mags:D.mags,cav,Bd:D.Bd*p.dip/100},
+    box:boxOf(ACC_R+1.6,1.6,ACC_R+1.6),maxLen:3,view:{dir:[.25,.85,.47],k:2.25}};
+ }},
+{id:'uniform',item:'Uniform field',title:'Uniform field',uniform:true,
+ params:[prm('B','Field strength',.2,3,.1,1,v=>v.toFixed(1)+' T'),
+   prm('tilt','Field tilt',0,90,1,0,v=>Math.round(v)+'°'),
+   prm('n','Line density',2,16,1,3,int)],
+ build(p){
+  // an imposed homogeneous field (no source conductor to integrate)
+  const t=p.tilt*Math.PI/180;
+  return {phys:[],display:[],uniform:{dir:[Math.sin(t),Math.cos(t),0]},box:boxOf(6,6,6)};
+ }},
+];
+const VIS_BY=Object.fromEntries(VIS.map(v=>[v.id,v]));
+const GROUPS=[['wires',['infwire','finwire','random']],['coils',['loop','stacked','infsol','finsol','toroid']],['fields',['uniform']],['accelerators',['accel']]];
+const ORDER=GROUPS.flatMap(g=>g[1]);
+
+const state={vis:'finsol',params:{},seed:20261008,
+  display:{arrows:true,flow:true,circuit:true,scale:'log',rotate:false,spacing:'flux'}};
+for(const v of VIS){state.params[v.id]={};for(const d of v.params)state.params[v.id][d.key]=d.value}
+const P=()=>state.params[state.vis];
+
+/* ---------- three.js setup ---------- */
+const $=s=>document.querySelector(s);
+const view=$('#view');
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+view.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x1e1e1e);
+scene.fog=new THREE.Fog(0x1e1e1e,10,40);
+scene.environment=new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(),0.04).texture;
+// perspective for the conductor scenes; orthographic for the uniform field, so that looking
+// along a plane gives a true flat projection (circles stay circles, end-on lines become points)
+const persp=new THREE.PerspectiveCamera(38,1,0.05,800);
+const ortho=new THREE.OrthographicCamera(-1,1,1,-1,0.05,800);
+let camera=persp,orthoH=6;
+const controls=new OrbitControls(camera,renderer.domElement);
+function fitOrtho(){
+  const a=persp.aspect||1.5;
+  Object.assign(ortho,{left:-orthoH*a,right:orthoH*a,top:orthoH,bottom:-orthoH});ortho.updateProjectionMatrix();
+}
+controls.enableDamping=true;controls.dampingFactor=.08;controls.autoRotateSpeed=.7;
+scene.add(new THREE.HemisphereLight(0xd6e4ff,0x202020,.6));
+const dl=new THREE.DirectionalLight(0xffffff,1.2);dl.position.set(5,9,7);scene.add(dl);
+
+new ResizeObserver(()=>{
+  const w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;
+  renderer.setSize(w,h,false);persp.aspect=w/h;persp.updateProjectionMatrix();fitOrtho();
+}).observe(view);
+
+const matMain=new THREE.MeshStandardMaterial({color:0xd4a867,metalness:.9,roughness:.3,envMapIntensity:.8});
+const matCirc=new THREE.MeshStandardMaterial({color:0x8c826f,metalness:.7,roughness:.45,envMapIntensity:.5});
+const matBatt=new THREE.MeshStandardMaterial({color:0x2c2f34,metalness:.4,roughness:.5,envMapIntensity:.5});
+const matTerm=new THREE.MeshStandardMaterial({color:0xd8d8d8,metalness:.9,roughness:.25,envMapIntensity:.8});
+
+const conductor=new THREE.Group();scene.add(conductor);
+const lineMesh=new THREE.LineSegments(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.95,depthWrite:false}));
+lineMesh.frustumCulled=false;scene.add(lineMesh);
+
+const MAXA=6000,MAXF=500;
+const coneGeo=new THREE.ConeGeometry(.045,.15,10);
+const arrowMesh=new THREE.InstancedMesh(coneGeo,new THREE.MeshBasicMaterial({color:0xffffff}),MAXA);
+arrowMesh.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(MAXA*3),3);
+arrowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);arrowMesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+arrowMesh.frustumCulled=false;arrowMesh.count=0;scene.add(arrowMesh);
+const flowMesh=new THREE.InstancedMesh(new THREE.ConeGeometry(.05,.14,10),new THREE.MeshBasicMaterial({color:0xffd9a0}),MAXF);
+flowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);flowMesh.frustumCulled=false;flowMesh.count=0;scene.add(flowMesh);
+
+/* ---------- curve helper for tubes ---------- */
+function cumOf(P){const n=P.length/3,c=new Float32Array(n);for(let i=1;i<n;i++){const j=3*i;c[i]=c[i-1]+Math.hypot(P[j]-P[j-3],P[j+1]-P[j-2],P[j+2]-P[j-1])}return c}
+function segAt(c,s){let lo=0,hi=c.length-2;while(lo<hi){const m=(lo+hi+1)>>1;if(c[m]<=s)lo=m;else hi=m-1}return Math.max(0,lo)}
+class PolyCurve extends THREE.Curve{
+  constructor(pts,closed){super();const a=closed?pts.concat([pts[0]]):pts;this.P=new Float32Array(a.flat());this.c=cumOf(this.P);this.L=this.c[this.c.length-1]}
+  getUtoTmapping(u){return u}
+  getPoint(t,target=new THREE.Vector3()){
+    const s=t*this.L,i=segAt(this.c,s),P=this.P,j=3*i,d=this.c[i+1]-this.c[i],f=d>0?(s-this.c[i])/d:0;
+    return target.set(P[j]+(P[j+3]-P[j])*f,P[j+1]+(P[j+4]-P[j+1])*f,P[j+2]+(P[j+5]-P[j+2])*f);
+  }
+  getTangent(t,target=new THREE.Vector3()){
+    const i=segAt(this.c,t*this.L),P=this.P,j=3*i;
+    return target.set(P[j+3]-P[j],P[j+4]-P[j+1],P[j+5]-P[j+2]).normalize();
+  }
+}
+
+/* ---------- colour ramp (VS Code blues) ---------- */
+const STOPS=[[0,[.08,.13,.19]],[.3,[.04,.30,.55]],[.6,[.10,.55,.90]],[.82,[.31,.76,1]],[1,[.88,.96,1]]];
+// even-spacing mode: colour alone carries |B|, so every line stays clearly visible
+// (VS Code palette: blue → cyan → teal → yellow → orange)
+const STOPS_EVEN=[[0,[.17,.33,.62]],[.3,[.31,.62,.95]],[.5,[.31,.79,.69]],[.75,[.86,.86,.67]],[1,[.95,.55,.40]]];
+function ramp(t){
+  const S=state.display.spacing==='even'?STOPS_EVEN:STOPS;
+  for(let i=1;i<S.length;i++)if(t<=S[i][0]){
+    const [t0,a]=S[i-1],[t1,b]=S[i],f=(t-t0)/(t1-t0);
+    return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];
+  }
+  return S[S.length-1][1];
+}
+const lin=c=>Math.pow(c,2.2);
+const B_LOG_TOP=6e-5,B_LOG_DEC=3,B_LIN_TOP=4e-5;
+function tOf(b){
+  if(state.display.scale==='log'){const v=(Math.log10(b+1e-30)-Math.log10(B_LOG_TOP)+B_LOG_DEC)/B_LOG_DEC;return v<0?0:v>1?1:v}
+  const v=b/B_LIN_TOP;return v>1?1:v;
+}
+
+/* ---------- state for current visualisation ---------- */
+let cfg=null, lines=[], arrows=[], tracks=[], flow=[];
+
+function finish(c){
+  c.center=[0,1,2].map(i=>(c.box.min[i]+c.box.max[i])/2);
+  c.H=Math.max(...[0,1,2].map(i=>(c.box.max[i]-c.box.min[i])/2));
+  c.sc=c.H/5; c.maxLen=c.maxLen||c.H*6;
+  return c;
+}
+function buildSegs(paths){
+  const a=[];
+  for(const p of paths){const n=p.pts.length,m=p.closed?n:n-1;
+    for(let i=0;i<m;i++){const A=p.pts[i],B=p.pts[(i+1)%n],d=sub(B,A);
+      if(d[0]*d[0]+d[1]*d[1]+d[2]*d[2]<1e-12)continue;a.push(A[0],A[1],A[2],d[0],d[1],d[2],p.I)}}
+  return new Float64Array(a);
+}
+function makeBattery(pos,dir){
+  const g=new THREE.Group(),s=1;
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(.12*s,.12*s,.44*s,32),matBatt);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(.124*s,.124*s,.08*s,32),matMain);band.position.y=.17*s;
+  const nub=new THREE.Mesh(new THREE.CylinderGeometry(.045*s,.045*s,.05*s,16),matTerm);nub.position.y=.245*s;
+  const neg=new THREE.Mesh(new THREE.CylinderGeometry(.1*s,.1*s,.02*s,24),matTerm);neg.position.y=-.225*s;
+  g.add(body,band,nub,neg);
+  g.position.set(...pos);
+  g.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),new THREE.Vector3(...dir).normalize());
+  return g;
+}
+function clipRuns(pts,closed,box){
+  const e=1.15,inside=p=>p[0]>=box.min[0]*e&&p[1]>=box.min[1]*e&&p[2]>=box.min[2]*e&&p[0]<=box.max[0]*e&&p[1]<=box.max[1]*e&&p[2]<=box.max[2]*e;
+  if(closed&&pts.every(inside))return [{pts:pts.concat([pts[0]]),closed:true}];
+  const runs=[],seq=closed?pts.concat([pts[0]]):pts;let cur=[];
+  for(const p of seq){if(inside(p))cur.push(p);else{if(cur.length>1)runs.push({pts:cur,closed:false});cur=[]}}
+  if(cur.length>1)runs.push({pts:cur,closed:false});
+  return runs;
+}
+function rebuildConductor(){
+  for(const o of [...conductor.children]){o.traverse(x=>x.geometry&&x.geometry.dispose());conductor.remove(o)}
+  tracks=[];
+  for(const d of cfg.display){
+    const curve=new PolyCurve(d.pts,d.closed);
+    const segs=Math.min(9000,Math.max(d.pts.length,Math.ceil(curve.L/.3)));
+    const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,segs,RW,7,d.closed),d.main?matMain:matCirc);
+    mesh.userData.main=d.main;conductor.add(mesh);
+    for(const r of clipRuns(d.pts,d.closed,cfg.box)){
+      const p=new Float32Array(r.pts.flat()),c=cumOf(p);
+      if(c[c.length-1]>1e-3)tracks.push({p,cum:c,len:c[c.length-1],closed:r.closed,main:d.main});
+    }
+  }
+  if(cfg.battery)conductor.add(makeBattery(cfg.battery.pos,cfg.battery.dir));
+  if(cfg.accel){                                   // display only: no iron in the field model
+    const A=cfg.accel,glass=(color,opacity)=>new THREE.MeshStandardMaterial({color,metalness:.3,roughness:.4,transparent:true,opacity,side:THREE.DoubleSide,depthWrite:false});
+    const pipe=new THREE.Mesh(new THREE.TorusGeometry(A.R,A.a*.85,16,240),glass(0xa0a8b0,.12));pipe.rotation.x=Math.PI/2;conductor.add(pipe);
+    const mats={D:glass(0x3794ff,.13),QF:glass(0xf48771,.2),QD:glass(0x4ec9b0,.2)};
+    for(const m of Object.values(mats))m.userData.op=m.opacity;cfg.magMats=mats;
+    for(const m of A.mags){
+      const {c,t,y}=magnetFrame(m),sh=new THREE.Mesh(new THREE.CylinderGeometry(A.a*1.45,A.a*1.45,m.L*.98,40,1,true),mats[m.type]);
+      sh.position.set(...c);sh.quaternion.setFromUnitVectors(Y,new THREE.Vector3(...t));conductor.add(sh);
+      if(m.type!=='D'){const l=textSprite(m.type,m.type==='QF'?'#f48771':'#4ec9b0',96);l.scale.setScalar(.42);l.position.set(c[0],A.a*2.3,c[2]);conductor.add(l)}
+    }
+    { // RF cavity: a short accelerating gap with an oscillating electric field along the beam
+      const C=A.cav,cv=new THREE.Mesh(new THREE.CylinderGeometry(A.a*1.75,A.a*1.75,C.L,40,1,true),glass(0xdcdcaa,.3));
+      cv.position.set(...C.c);cv.quaternion.setFromUnitVectors(Y,new THREE.Vector3(...C.t));conductor.add(cv);cfg.cavMesh=cv;cfg.cavPulse=0;
+      const l=textSprite('RF','#dcdcaa',96);l.scale.setScalar(.42);l.position.set(C.c[0],A.a*2.5,C.c[2]);conductor.add(l);
+    }
+  }
+  setupFlow();
+}
+function setupFlow(){
+  flow=[];
+  const vis=tracks;
+  const total=vis.reduce((s,t)=>s+t.len,0);
+  const sp=Math.max(cfg.sc*.8,total/MAXF);
+  for(const tr of vis){const n=Math.max(1,Math.floor(tr.len/sp));for(let j=0;j<n;j++)flow.push({tr,s:(j+.5)/n*tr.len,i:0})}
+}
+
+/* ---------- field lines ---------- */
+function computeT(L){
+  const rk=cfg?.accel?PART.ramp||1:1;
+  if(L.fixedT!=null){L.t.fill(L.fixedT);return}
+  const k=(P().I||1)/(L.I0||1)*rk;for(let i=0;i<L.t.length;i++)L.t[i]=tOf(L.b0[i]*k);
+}
+function rebuildLineMesh(){
+  let ns=0;for(const L of lines)ns+=L.t.length-1;
+  const pos=new Float32Array(ns*6),col=new Float32Array(ns*6);let k=0;
+  for(const L of lines){
+    const Pp=L.p,T=L.t;
+    let c0=ramp(T[0]);
+    for(let i=0;i<T.length-1;i++){
+      const j=3*i,c1=ramp(T[i+1]);
+      pos[k]=Pp[j];pos[k+1]=Pp[j+1];pos[k+2]=Pp[j+2];pos[k+3]=Pp[j+3];pos[k+4]=Pp[j+4];pos[k+5]=Pp[j+5];
+      col[k]=lin(c0[0]);col[k+1]=lin(c0[1]);col[k+2]=lin(c0[2]);col[k+3]=lin(c1[0]);col[k+4]=lin(c1[1]);col[k+5]=lin(c1[2]);
+      c0=c1;k+=6;
+    }
+  }
+  lineMesh.geometry.dispose();
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  lineMesh.geometry=g;
+}
+function recolorAll(){for(const L of lines)computeT(L);rebuildLineMesh()}
+function clearLines(){lines=[];arrows=[]}
+let jobI=5;
+function addLine(raw){
+  const cum=cumOf(raw.p),len=cum[cum.length-1];
+  if(len<1e-4)return;
+  const L={p:raw.p,b0:raw.b,I0:jobI,closed:raw.closed,cum,len,t:new Float32Array(raw.b.length),fixedT:raw.fixedT};
+  computeT(L);lines.push(L);
+  const sp=raw.arrowSp||cfg.H*.42,n=Math.max(1,Math.floor(len/sp)),off=0;
+  for(let j=0;j<n&&arrows.length<MAXA;j++)arrows.push({L,s:(j+off)/n*len,i:0});
+}
+
+/* ---------- worker job ---------- */
+const computeSync=workerCore();
+const workerURL=URL.createObjectURL(new Blob(['('+workerCore.toString()+')();'],{type:'text/javascript'}));
+let worker=null,jobId=0,awaitFirst=false,useWorker=true;
+const spin=$('#spin');
+function onJobMsg(m){
+  if(m.job!==jobId)return;
+  if(m.type==='lines'){
+    if(awaitFirst){clearLines();awaitFirst=false}
+    for(const L of m.lines)addLine(L);
+    rebuildLineMesh();
+  }else if(m.type==='done'){
+    if(awaitFirst){clearLines();rebuildLineMesh();awaitFirst=false}
+    spin.classList.remove('on');
+  }
+}
+// uniform field: straight parallel lines on a square grid across the plane ⊥ B
+function uniformLines(){
+  clearLines();
+  const p=P(),b=Bhat(),u=new THREE.Vector3().crossVectors(b,Math.abs(b.y)<.9?Y:X).normalize(),w=new THREE.Vector3().crossVectors(b,u);
+  // spacing set by density across a 12 m frame; lines run far past the view along B (the field is infinite)
+  const sp=12/Math.round(p.n),G=Math.ceil(7.5/sp),Lh=22,K=177,t=.3+.5*(p.B-.2)/2.8;
+  for(let i=-G;i<G;i++)for(let j=-G;j<G;j++){
+    const o=u.clone().multiplyScalar((i+.5)*sp).addScaledVector(w,(j+.5)*sp);
+    const pts=new Float32Array(3*K);
+    for(let k=0;k<K;k++){const s=-Lh+2*Lh*k/(K-1);pts[3*k]=o.x+b.x*s;pts[3*k+1]=o.y+b.y*s;pts[3*k+2]=o.z+b.z*s}
+    addLine({p:pts,b:new Float32Array(K).fill(p.B),closed:false,fixedT:t,arrowSp:cfg.H*1.2});
+  }
+  rebuildLineMesh();
+}
+function startJob(){
+  if(worker){worker.terminate();worker=null}
+  axesGroup.scale.setScalar(cfg.uniform?2.2:1);
+  if(cfg.uniform){jobId++;awaitFirst=false;uniformLines();spin.classList.remove('on');return}
+  const id=++jobId;awaitFirst=true;jobI=P().I;spin.classList.add('on');
+  const msg={job:id,segs:buildSegs(cfg.phys),rw:RW,rakes:cfg.rakes,seedPts:cfg.seedPts,mode:state.display.spacing,nSeeds:Math.round(P().n*(P().planes||P().levels||1)),
+    seed:1337,box:cfg.box,H:cfg.H,maxLen:cfg.maxLen};
+  if(useWorker){
+    try{
+      worker=new Worker(workerURL);
+      worker.onmessage=e=>onJobMsg(e.data);
+      worker.onerror=()=>{useWorker=false;worker=null;setTimeout(()=>computeSync(msg,onJobMsg),0)};
+      worker.postMessage(msg);return;
+    }catch(err){useWorker=false}
+  }
+  setTimeout(()=>computeSync(msg,onJobMsg),0);
+}
+
+/* ---------- apply / view ---------- */
+function applyVis(reset){
+  const v=VIS_BY[state.vis];
+  cfg=finish(v.build(P(),state));
+  if(reset){clearLines();rebuildLineMesh()}
+  rebuildConductor();
+  startJob();
+  onFieldChanged();
+  if(reset)setView();
+}
+function setView(){
+  const c=cfg.center,d=nrm(cfg.view?.dir||[.58,.42,.70]);
+  const asp=persp.aspect||1.5;
+  let dist=cfg.H*(cfg.view?.k||2.5);if(asp<1.3)dist*=Math.pow(1.3/asp,.8);
+  camera=cfg.uniform?ortho:persp;controls.object=camera;
+  if(cfg.uniform){orthoH=cfg.H*1.1*(asp<1.3?1.3/asp:1);ortho.zoom=1;fitOrtho();dist=cfg.H*5}
+  camera.position.set(c[0]+d[0]*dist,c[1]+d[1]*dist,c[2]+d[2]*dist);
+  controls.target.set(...c);controls.update();
+}
+let rbTimer=0;
+const scheduleRebuild=()=>{clearTimeout(rbTimer);rbTimer=setTimeout(()=>applyVis(false),70)};
+
+/* ---------- animation ---------- */
+const _p=new THREE.Vector3(),_d=new THREE.Vector3(),_q=new THREE.Quaternion(),_s=new THREE.Vector3(),_m=new THREE.Matrix4(),_c=new THREE.Color(),UP=new THREE.Vector3(0,1,0);
+function place(mesh,k,Pp,cum,len,closed,a,size){
+  let i=a.i;
+  while(i<cum.length-2&&cum[i+1]<a.s)i++;
+  a.i=i;
+  const d=cum[i+1]-cum[i],f=d>0?(a.s-cum[i])/d:0,j=3*i;
+  _p.set(Pp[j]+(Pp[j+3]-Pp[j])*f,Pp[j+1]+(Pp[j+4]-Pp[j+1])*f,Pp[j+2]+(Pp[j+5]-Pp[j+2])*f);
+  _d.set(Pp[j+3]-Pp[j],Pp[j+4]-Pp[j+1],Pp[j+5]-Pp[j+2]).normalize();
+  _q.setFromUnitVectors(UP,_d);
+  const e=closed?1:Math.max(0,Math.min(1,a.s/(.3*cfg.sc),(len-a.s)/(.3*cfg.sc)));
+  const sz=size*e;_s.set(sz,sz,sz);
+  _m.compose(_p,_q,_s);mesh.setMatrixAt(k,_m);
+  return i;
+}
+function advance(a,len,ds){a.s+=ds;if(a.s>=len){a.s-=len*Math.floor(a.s/len);a.i=0}}
+function updateArrows(dt){
+  arrowMesh.visible=state.display.arrows&&arrows.length>0&&!INS.on;
+  if(!arrowMesh.visible)return;
+  const vmax=cfg.H*.5,sc=cfg.sc;
+  for(let k=0;k<arrows.length;k++){
+    const a=arrows[k],L=a.L,t=L.t[a.i];
+    advance(a,L.len,vmax*(.05+.95*Math.pow(t,1.5))*dt);
+    const i=place(arrowMesh,k,L.p,L.cum,L.len,L.closed,a,sc*(.75+.5*L.t[a.i]));
+    const c=ramp(L.t[i]);
+    _c.setRGB(c[0]+(1-c[0])*.4,c[1]+(1-c[1])*.4,c[2]+(1-c[2])*.4,THREE.SRGBColorSpace);
+    arrowMesh.setColorAt(k,_c);
+  }
+  arrowMesh.count=arrows.length;
+  arrowMesh.instanceMatrix.needsUpdate=true;arrowMesh.instanceColor.needsUpdate=true;
+}
+function updateFlow(dt){
+  flowMesh.visible=state.display.flow&&flow.length>0&&!INS.on;
+  if(!flowMesh.visible)return;
+  const v=cfg.H*(.03+.45*(P().I??5)/20),sz=cfg.sc*.8;
+  for(let k=0;k<flow.length;k++){
+    const a=flow[k],tr=a.tr;
+    advance(a,tr.len,v*dt);
+    place(flowMesh,k,tr.p,tr.cum,tr.len,tr.closed,a,sz);
+  }
+  flowMesh.count=flow.length;flowMesh.instanceMatrix.needsUpdate=true;
+}
+const clock=new THREE.Clock();
+function frame(){
+  requestAnimationFrame(frame);
+  const dt=Math.min(clock.getDelta(),.05);
+  controls.autoRotate=state.display.rotate&&!camAnim;
+  stepCamAnim();
+  controls.update();
+  const d=camera.position.distanceTo(controls.target);
+  if(camera.isOrthographicCamera){scene.fog.near=d+orthoH*.6;scene.fog.far=d+orthoH*3}
+  else{scene.fog.near=d*.85;scene.fog.far=d*2.5}
+  if(cfg){updateArrows(dt);updateFlow(dt);stepParticles(dt);updateUniformOverlay(dt);updateEField();updateInspect(dt)}
+  renderer.render(scene,camera);
+}
+
+/* ---------- uniform field: charged particles ----------
+   Workflow: SETUP (place charges, set each one's plane, position and velocity from the side
+   panel) → RUN → RESET back to the same initial conditions.
+   Each charge's initial state is stored in coordinates of its own plane (u, v along the
+   plane's axes, w = offset along the normal; speed s and direction θ within the plane),
+   so its velocity is guaranteed to lie in that plane.
+   Motion: F = q v × B. In a uniform B the velocity rotates about B at ω = qB/m; each sub-step
+   rotates v exactly and advances x by the mean velocity, so circles and helices close. */
+const PART={list:[],sel:null,tool:'orbit',plane:'perpB',viewN:new THREE.Vector3(0,1,0),
+  n:new THREE.Vector3(0,1,0),p0:new THREE.Vector3(),mode:'setup',follow:false,timeScale:1,showForce:true,showE:true,ramp:1,rampRate:0,rfPh:0,rfW:0,simT:0,scope:[],rfMax:false,turns:0,lastTh:0,drag:null,click:null,used:false,nextId:1};
+const partGroup=new THREE.Group(),planeGroup=new THREE.Group(),axesGroup=new THREE.Group();
+scene.add(planeGroup,axesGroup,partGroup);
+const X=new THREE.Vector3(1,0,0),Y=new THREE.Vector3(0,1,0),Z=new THREE.Vector3(0,0,1);
+const COL_POS='#f48771',COL_NEG='#c586c0',COL_F='#dcdcaa',VMAX=6;
+
+{ // plane gizmo (built lying in XZ, normal +y, then rotated onto the plane normal)
+  const S=12;
+  const grid=new THREE.GridHelper(S,24,0x3794ff,0x3794ff);
+  grid.material.transparent=true;grid.material.opacity=.13;grid.material.depthWrite=false;
+  const fill=new THREE.Mesh(new THREE.PlaneGeometry(S,S),new THREE.MeshBasicMaterial({color:0x007acc,transparent:true,opacity:.07,side:THREE.DoubleSide,depthWrite:false}));
+  fill.rotation.x=-Math.PI/2;
+  const edge=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>new THREE.Vector3(a*S/2,0,b*S/2))),
+    new THREE.LineBasicMaterial({color:0x3794ff,transparent:true,opacity:.5}));
+  planeGroup.add(fill,grid,edge);
+}
+function textSprite(txt,color,px=64){
+  const c=document.createElement('canvas');c.width=c.height=px;const g=c.getContext('2d');
+  g.font=`500 ${px*.6}px -apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif`;
+  g.fillStyle=color;g.textAlign='center';g.textBaseline='middle';g.fillText(txt,px/2,px/2+2);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false}));
+}
+{ // axes triad at the origin
+  for(const [v,c,l] of [[X,'#f48771','x'],[Y,'#89d185','y'],[Z,'#4fc1ff','z']]){
+    const a=new THREE.ArrowHelper(v,new THREE.Vector3(),1.3,new THREE.Color(c),.24,.12);
+    a.line.material.transparent=true;a.line.material.opacity=.95;
+    for(const m of [a.line,a.cone]){m.material.depthTest=false;m.renderOrder=11}axesGroup.add(a);
+    const s=textSprite(l,c,96);s.material.depthTest=false;s.renderOrder=11;s.scale.setScalar(.42);s.position.copy(v).multiplyScalar(1.6);axesGroup.add(s);
+  }
+}
+function chargeTexture(q){
+  const S=128,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');
+  const col=q>0?COL_POS:COL_NEG,grd=g.createRadialGradient(S/2,S/2,S*.2,S/2,S/2,S*.5);
+  grd.addColorStop(0,col+'88');grd.addColorStop(1,col+'00');g.fillStyle=grd;g.fillRect(0,0,S,S);
+  g.beginPath();g.arc(S/2,S/2,S*.3,0,Math.PI*2);g.fillStyle=col;g.fill();
+  g.lineWidth=S*.03;g.strokeStyle='rgba(255,255,255,.75)';g.stroke();
+  g.strokeStyle='#fff';g.lineWidth=S*.065;g.lineCap='round';g.beginPath();
+  g.moveTo(S*.38,S/2);g.lineTo(S*.62,S/2);if(q>0){g.moveTo(S/2,S*.38);g.lineTo(S/2,S*.62)}g.stroke();
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+function ringTexture(w){
+  const S=128,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d');
+  g.beginPath();g.arc(S/2,S/2,S*.42,0,Math.PI*2);g.lineWidth=S*w;g.strokeStyle='#fff';g.stroke();
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;
+}
+const TEX={pos:chargeTexture(1),neg:chargeTexture(-1),ring:ringTexture(.045),mark:ringTexture(.09)};
+const selRing=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX.ring,depthTest:false,depthWrite:false,transparent:true}));selRing.renderOrder=12;selRing.visible=false;partGroup.add(selRing);
+const MAXT=2400;
+const colOf=a=>a.sign>0?COL_POS:COL_NEG;
+
+/* plane geometry */
+const Bhat=()=>new THREE.Vector3(...(cfg?.uniform?.dir||[0,1,0])).normalize();
+function planeNormal(key){return {xy:Z,yz:X,zx:Y,perpB:Bhat(),view:PART.viewN}[key].clone()}
+const planeN=pl=>pl.key==='view'?pl.n.clone():planeNormal(pl.key);
+// in-plane axes as seen when looking at the plane from +n with the usual "up" (matches flyTo)
+function basisOf(n){
+  const up0=Math.abs(n.y)<.995?Y:new THREE.Vector3(0,0,-1);
+  const e1=new THREE.Vector3().crossVectors(up0,n).normalize(),e2=new THREE.Vector3().crossVectors(n,e1);
+  return {e1,e2,n};
+}
+function axisLabel(v,fallback){
+  for(const [ax,l] of [[X,'x'],[Y,'y'],[Z,'z']]){const d=v.dot(ax);if(Math.abs(d)>.999)return (d>0?'+':'−')+l}
+  return fallback;
+}
+const PLANE_NAME={xy:'XY',yz:'YZ',zx:'ZX',perpB:'⊥B',view:'View'};
+
+/* particles */
+function makeParticle(o){
+  const a={id:PART.nextId++,sign:1,qm:cfg?.qm0||1,plane:{key:PART.plane==='perpB'?'perpB':'xy'},u:0,v:0,w:0,s:0,th:0,hidden:false,...o,
+    pos:new THREE.Vector3(),vel:new THREE.Vector3(),n:0,gone:false};
+  a.sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:a.sign>0?TEX.pos:TEX.neg,depthTest:false,depthWrite:false,transparent:true}));a.sprite.renderOrder=10;
+  a.arr=new Float32Array(MAXT*3);a.carr=new Float32Array(MAXT*3);
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(a.arr,3).setUsage(THREE.DynamicDrawUsage));g.setDrawRange(0,0);
+  g.setAttribute('color',new THREE.BufferAttribute(a.carr,3).setUsage(THREE.DynamicDrawUsage));
+  a.trail=new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.85,depthWrite:false}));
+  a.trail.frustumCulled=false;a.trail.renderOrder=9;
+  a.mark=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX.mark,color:colOf(a),transparent:true,opacity:.55,depthTest:false,depthWrite:false}));a.mark.renderOrder=8;
+  a.arrow=new THREE.ArrowHelper(X,new THREE.Vector3(),1,new THREE.Color(colOf(a)),.25,.13);
+  a.arrow.line.material.depthTest=false;a.arrow.cone.material.depthTest=false;a.arrow.renderOrder=11;
+  a.farrow=new THREE.ArrowHelper(X,new THREE.Vector3(),1,new THREE.Color(COL_F),.2,.1);a.farrow.visible=false;
+  a.farrow.line.material.depthTest=false;a.farrow.cone.material.depthTest=false;a.farrow.renderOrder=11;
+  a.earrow=new THREE.ArrowHelper(X,new THREE.Vector3(),1,new THREE.Color('#89d185'),.2,.1);a.earrow.visible=false;
+  a.earrow.line.material.depthTest=false;a.earrow.cone.material.depthTest=false;a.earrow.renderOrder=11;
+  partGroup.add(a.trail,a.mark,a.arrow,a.farrow,a.earrow,a.sprite);
+  PART.list.push(a);applyInit(a);syncVis(a);
+  return a;
+}
+function setSign(a,s){
+  a.sign=s;a.sprite.material.map=s>0?TEX.pos:TEX.neg;a.sprite.material.needsUpdate=true;
+  a.mark.material.color.set(colOf(a));a.arrow.setColor(colOf(a));
+}
+function removeParticle(a){
+  partGroup.remove(a.sprite,a.trail,a.mark,a.arrow,a.farrow,a.earrow);a.trail.geometry.dispose();a.sprite.material.dispose();a.mark.material.dispose();
+  PART.list.splice(PART.list.indexOf(a),1);
+  if(PART.sel===a)PART.sel=null;
+  offEls.get(a.id)?.remove();offEls.delete(a.id);
+}
+function clearParticles(){for(const a of [...PART.list])removeParticle(a);PART.mode='setup';refreshUI()}
+function initState(a){
+  const {e1,e2,n}=basisOf(planeN(a.plane));
+  const p=e1.clone().multiplyScalar(a.u).addScaledVector(e2,a.v).addScaledVector(n,a.w);
+  const v=e1.clone().multiplyScalar(a.s*Math.cos(a.th)).addScaledVector(e2,a.s*Math.sin(a.th));
+  return {p,v,e1,e2,n};
+}
+function applyInit(a){                       // show the initial conditions (setup mode)
+  const {p,v}=initState(a);
+  a.pos.copy(p);a.vel.copy(v);a.gone=a.lost=false;a.sprite.material.opacity=1;a.sprite.position.copy(p);a.mark.position.copy(p);
+  const sp=v.length();a.arrow.position.copy(p);
+  if(sp>.02){a.arrow.setDirection(v.clone().normalize());a.arrow.setLength(sp,Math.min(.3,sp*.35),Math.min(.15,sp*.2))}
+  a.arrowLen=sp;syncVis(a);
+}
+function syncVis(a){
+  const setup=PART.mode==='setup';
+  a.sprite.visible=!a.hidden;
+  a.arrow.visible=!a.hidden&&setup&&a.arrowLen>.02;
+  a.trail.visible=a.mark.visible=!a.hidden&&!setup;
+}
+function resetTrail(a){a.n=0;a.trail.geometry.setDrawRange(0,0);pushTrail(a,true)}
+const _tc=new THREE.Color(),_gold=new THREE.Color('#ffe27a');
+function pushTrail(a,force){
+  const j=3*(a.n-1);
+  if(!force&&a.n>0&&Math.hypot(a.arr[j]-a.pos.x,a.arr[j+1]-a.pos.y,a.arr[j+2]-a.pos.z)<.02)return;
+  if(a.n>=MAXT){a.arr.copyWithin(0,3*600);a.carr.copyWithin(0,3*600);a.n-=600}
+  a.arr[3*a.n]=a.pos.x;a.arr[3*a.n+1]=a.pos.y;a.arr[3*a.n+2]=a.pos.z;
+  _tc.set(colOf(a));
+  if(cfg?.accel){const f=Math.max(0,Math.min(1,(a.vel.length()/cfg.accel.v0-1)/1.2));_tc.lerp(_gold,f)}
+  a.carr[3*a.n]=_tc.r;a.carr[3*a.n+1]=_tc.g;a.carr[3*a.n+2]=_tc.b;a.n++;
+  a.trail.geometry.setDrawRange(0,a.n);a.trail.geometry.attributes.position.needsUpdate=true;a.trail.geometry.attributes.color.needsUpdate=true;
+}
+const _v0=new THREE.Vector3();
+/* B at a point: imposed for the uniform scene, otherwise Biot–Savart from the conductor
+   (segments loaded at build time; rescaled live by the current slider) */
+const FIELD=workerCore(),_cv=new THREE.Vector3(),_ct=new THREE.Vector3(),_B=new THREE.Vector3(),_bh=new THREE.Vector3(),_c3=new THREE.Vector3();
+function Bat(p,out){
+  if(cfg.uniform)return out.copy(Bhat()).multiplyScalar(P().B);
+  const o=FIELD.at(p.x,p.y,p.z),k=(P().I||1)/(cfg.I0||1)*(cfg.accel?PART.ramp||1:1);
+  return out.set(o[0]*k,o[1]*k,o[2]*k);
+}
+function sceneBref(){                // typical |B| in the scene: median over points away from the wires
+  if(cfg.uniform)return P().B;
+  const rng=mulberry32(11),v=[],mn=cfg.box.min,mx=cfg.box.max,o=FIELD.o;
+  for(let i=0;i<400&&v.length<60;i++){
+    const x=(mn[0]+(mx[0]-mn[0])*rng())*.8,y=(mn[1]+(mx[1]-mn[1])*rng())*.8,z=(mn[2]+(mx[2]-mn[2])*rng())*.8;
+    FIELD.at(x,y,z);if(o[3]<cfg.sc*.6)continue;v.push(Math.hypot(o[0],o[1],o[2]));
+  }
+  v.sort((a,b)=>a-b);return v.length?v[v.length>>1]:1e-5;
+}
+const niceNum=x=>{const e=Math.floor(Math.log10(x)),m=x/10**e;return (m<1.5?1:m<3.5?2:m<7.5?5:10)*10**e};
+// Boris scheme: half drift, rotate v about the local B by −(q/m)|B|h, half drift.
+// |v| is conserved exactly (magnetic forces do no work); step size adapts to the local
+// cyclotron rate and, near wires, to the distance from the conductor.
+function stepParticles(dt){
+  if(!cfg||PART.mode!=='run')return;
+  const T=dt*PART.timeScale,far=cfg.H*12;_c3.set(...cfg.center);
+  if(cfg.accel){_cv.set(...cfg.accel.cav.c);_ct.set(...cfg.accel.cav.t)}
+  // all charges advance together in short slices; between slices the ring's magnets are
+  // re-ramped to the lead charge's momentum, so they never lag behind an RF kick
+  const slice=cfg.accel?.02:T;
+  for(let t0=0;t0<T-1e-12;t0+=slice){
+    const dT=Math.min(slice,T-t0),Erf=rfField(),r0=PART.ramp||1;
+    if(cfg.accel)rfTrack(dT);
+    for(const a of PART.list){
+      if(a.gone)continue;
+      const sp=a.vel.length();let t=0,it=0;
+      while(t<dT&&it++<3000){
+        Bat(a.pos,_B);
+        let h=Math.min(dT-t,.05/Math.max(a.qm*_B.length(),1e-12));
+        if(!cfg.uniform&&sp>1e-9)h=Math.min(h,Math.max(.3*FIELD.o[3],.004*cfg.H)/sp);
+        if(Erf&&a.pos.distanceTo(_cv)<2*cfg.accel.cav.L)h=Math.min(h,cfg.accel.cav.L/(8*Math.max(sp,1e-9)));
+        a.pos.addScaledVector(a.vel,h/2);
+        Bat(a.pos,_B);const Bm=_B.length();
+        if(Bm>0)a.vel.applyAxisAngle(_bh.copy(_B).multiplyScalar(1/Bm),-a.sign*a.qm*Bm*h);
+        a.pos.addScaledVector(a.vel,h/2);t+=h;
+        if(Erf){const e=cavityE(a.pos);if(e)a.vel.addScaledVector(_ct,a.sign*a.qm*e*h)}   // F = qE along the beam (E oscillates)
+      }
+      // induced field of the ramping magnets, E = −(∂A/∂t) = −A·(d ramp/dt), applied once per slice
+      if(cfg.accel&&!a.gone&&PART.rampRate){const Av=FIELD.A(a.pos.x,a.pos.y,a.pos.z),k=-a.sign*a.qm*PART.rampRate*dT;
+        a.vel.x+=Av[0]*k;a.vel.y+=Av[1]*k;a.vel.z+=Av[2]*k}
+      if(a.pos.distanceTo(_c3)>far)a.gone=true;
+      if(cfg.accel){const A=cfg.accel;
+        if(Math.hypot(Math.hypot(a.pos.x,a.pos.z)-A.R,a.pos.y)>A.a*.85){a.gone=a.lost=true;a.sprite.material.opacity=.35;updateRow(a)}}
+    }
+    if(cfg.accel&&PART.list.length){
+      // magnets follow the momentum of the lead charge (q1) while RF is on, as in a synchrotron
+      const q=PART.list[0],A=cfg.accel;
+      if(Erf&&!q.gone){PART.ramp=Math.max(.3,q.vel.length()/A.v0);if(PART.ramp>=3){PART.ramp=3;PART.rfMax=true}}
+      if(!q.gone){const th=Math.atan2(q.pos.z,q.pos.x);if(PART.lastTh<0&&th>=0&&q.pos.x>0)PART.turns++;PART.lastTh=th}
+    }
+    if(cfg.accel){
+      // dB/dt: the ramp jumps a little at each RF kick; a real synchrotron ramps smoothly, so the rate
+      // that drives the induced field is the ramp's rise averaged over about half a turn
+      const A=cfg.accel,sp=PART.list[0]&&!PART.list[0].gone?PART.list[0].vel.length():A.v0,tau=Math.PI*A.R/Math.max(sp,1e-6);
+      PART.rampRate+=(((PART.ramp||1)-r0)/dT-PART.rampRate)*Math.min(1,dT/tau);
+      PART.simT+=dT;
+      const sc=PART.scope,last=sc[sc.length-1];
+      if(!last||PART.simT-last[0]>=.05){sc.push([PART.simT,PART.ramp||1,rfField()?Math.cos(PART.rfPh):0,PART.rampRate]);if(sc.length>2400)sc.splice(0,600)}
+    }
+  }
+  for(const a of PART.list){a.sprite.position.copy(a.pos);if(!a.gone||a.n<2)pushTrail(a)}
+}
+
+/* force arrows: F/m = (q/m) v × B at the charge's current (or, in setup, initial) state */
+const _fa=new THREE.Vector3();let forceTick=0;
+function updateForces(){
+  for(const a of PART.list){
+    if(!PART.showForce||a.hidden||a.gone||!cfg||(INS.on&&a!==PART.sel)){a.farrow.visible=a.earrow.visible=false;continue}
+    // normal view: length ∝ |F| on the scene's scale; Inspect: ∝ |F| relative to the recent maximum, sized to the camera distance
+    const len=f=>INS.on?INS.dist*.36*Math.min(1,f/Math.max(INS.fmax,1e-12)):Math.min(f*cfg.fk,3);
+    const head=L=>INS.on?[Math.min(L*.3,INS.dist*.07),Math.min(L*.12,INS.dist*.03)]:[Math.min(.22,L*.35),Math.min(.11,L*.2)];
+    let pos=a.pos,vel=a.vel;if(PART.mode==='setup'){const st=initState(a);pos=st.p;vel=st.v}
+    // electric force qE: the RF cavity's field plus the field induced by the ramping magnets
+    // In the RF gap it is drawn on the same scale as the magnetic force. Elsewhere only the induced
+    // field acts, about 1000× weaker, so that arrow is drawn ×E_MAG in a paler green to stay visible.
+    const Ev=PART.mode==='run'&&cfg.accel?Eat(pos,_ev):null,fe=Ev?Ev.length()*a.qm:0;
+    const inGap=!!(Ev&&cavityE(pos)),Le=fe?len(inGap?fe:fe*E_MAG):0;
+    a.earrow.visible=Le>=(INS.on?INS.dist*.01:.03);
+    if(a.earrow.visible){a.earrow.setColor(inGap?E_COL:EI_COL);a.earrow.position.copy(pos);a.earrow.setDirection(Ev.multiplyScalar(a.sign/Ev.length()));a.earrow.setLength(Le,...head(Le))}
+    Bat(pos,_B);_fa.copy(vel).cross(_B).multiplyScalar(a.sign*a.qm);
+    const am=_fa.length(),L=len(am);
+    if(L<(INS.on?INS.dist*.01:.03)){a.farrow.visible=false;continue}
+    a.farrow.visible=true;a.farrow.position.copy(pos);a.farrow.setDirection(_fa.multiplyScalar(1/am));
+    a.farrow.setLength(L,...head(L));
+  }
+  if(PART.mode==='run'&&++forceTick%6===0)syncInspector();
+}
+/* ---------- electric fields in the ring ----------
+   1. RF cavity: E along the beam, E = E0·cos φ. The phase φ is locked to the lead charge q1
+      (harmonic 1, as a beam-phase loop does): the field is at its crest whenever q1 is in the gap and
+      reversed half a turn later. It has to oscillate: any static E has ∮E·dl = 0, so whatever a
+      static field gave on one side of the ring it would take back on the other. As the beam speeds
+      up, the RF frequency rises with it — exactly what low-energy synchrotrons do.
+   2. Induced field of the ramping magnets (Faraday): E = −∂A/∂t, with A the vector potential of the
+      same conductors (there are no charges, so there is no −∇V term). It curls around each magnet's
+      changing flux: forwards on one side of the aperture, backwards on the other. Around the whole
+      orbit it nearly cancels (∮E·dl = −dΦ/dt, and little net flux threads the ring), which is why a
+      synchrotron needs RF cavities — unlike a betatron, where that net flux is the whole point. */
+const E_COL='#89d185',EI_COL='#c5e8a3',E_MAG=1000,_ev=new THREE.Vector3();
+const eGroup=new THREE.Group();scene.add(eGroup);
+function glyphSet(max,color,op){
+  const geo=new THREE.BufferGeometry(),pos=new Float32Array(max*6);
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3).setUsage(THREE.DynamicDrawUsage));geo.setDrawRange(0,0);
+  const lm=new THREE.LineBasicMaterial({color,transparent:true,opacity:op,depthWrite:false,depthTest:false}),cm=new THREE.MeshBasicMaterial({color,transparent:true,opacity:op,depthWrite:false,depthTest:false});
+  const lines=new THREE.LineSegments(geo,lm),cones=new THREE.InstancedMesh(new THREE.ConeGeometry(.5,1,8),cm,max);
+  cones.instanceMatrix.setUsage(THREE.DynamicDrawUsage);lines.frustumCulled=cones.frustumCulled=false;cones.count=0;
+  lines.renderOrder=cones.renderOrder=6;eGroup.add(lines,cones);
+  const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),sv=new THREE.Vector3(),c=new THREE.Vector3();let n=0;
+  return {
+    opacity(o){lm.opacity=cm.opacity=o},
+    begin(){n=0},
+    add(p,d,L,w){            // arrow of length L centred on p, pointing along unit d
+      if(n>=max)return;const h=Math.min(L*.45,w*3);
+      pos.set([p.x-d.x*L/2,p.y-d.y*L/2,p.z-d.z*L/2,p.x+d.x*(L/2-h*.8),p.y+d.y*(L/2-h*.8),p.z+d.z*(L/2-h*.8)],6*n);
+      q.setFromUnitVectors(Y,d);c.copy(p).addScaledVector(d,L/2-h/2);sv.set(w*2,h,w*2);m4.compose(c,q,sv);cones.setMatrixAt(n++,m4);
+    },
+    end(){geo.setDrawRange(0,2*n);geo.attributes.position.needsUpdate=true;cones.count=n;cones.instanceMatrix.needsUpdate=true}};
+}
+const EF={rf:glyphSet(48,E_COL,.95),ind:glyphSet(700,EI_COL,.75),cav:null,samp:null,Amax:1,circ:0};
+// sample points: across the RF gap, and around the ring across the aperture (A at the design currents;
+// the actual A is that times the ramp, so the induced E is −A·(d ramp/dt))
+function buildEField(){
+  EF.cav=EF.samp=null;
+  const A=cfg.accel;if(!A)return;
+  const C=A.cav,cc=new THREE.Vector3(...C.c),cr=new THREE.Vector3(C.c[0],0,C.c[2]).normalize(),pts=[[0,0]];
+  for(const [r,m] of [[.45,6],[.82,10]])for(let j=0;j<m;j++){const f=2*Math.PI*j/m+r*3;pts.push([r*A.a*Math.cos(f),r*A.a*Math.sin(f)])}
+  EF.cav={t:new THREE.Vector3(...C.t),pts:pts.map(([x,y])=>cc.clone().addScaledVector(cr,x).addScaledVector(Y,y))};
+  const M=Math.round(2*Math.PI*A.R/.18),s=[];let Amax=1e-30,circ=0;
+  for(let i=0;i<M;i++){
+    const th=2*Math.PI*(i+.5)/M,r=new THREE.Vector3(Math.cos(th),0,Math.sin(th)),t=new THREE.Vector3(-Math.sin(th),0,Math.cos(th));
+    for(const o of [-.6,0,.6]){
+      const p=r.clone().multiplyScalar(A.R+o*A.a),a=FIELD.A(p.x,p.y,p.z),v=new THREE.Vector3(a[0],a[1],a[2]);
+      s.push({p,A:v});Amax=Math.max(Amax,v.length());if(o===0)circ+=v.dot(t)*2*Math.PI*A.R/M;
+    }
+  }
+  EF.samp=s;EF.Amax=Amax;EF.circ=circ;          // circ = ∮A·dl = magnetic flux through the design orbit
+}
+function rfTrack(dT){                             // RF phase, locked to q1 (φ = 0 when q1 is at the gap)
+  const q=PART.list[0],A=cfg.accel;
+  if(q&&!q.gone){let d=Math.atan2(q.pos.z,q.pos.x)-A.cav.th;d-=2*Math.PI*Math.round(d/(2*Math.PI));PART.rfPh=d;PART.rfW=q.vel.length()/A.R}
+  else PART.rfPh=(PART.rfPh||0)+(PART.rfW||A.v0/A.R)*dT;
+}
+function Eat(p,out){                              // total E at p: RF cavity + induced −∂A/∂t
+  out.set(0,0,0);const A=cfg.accel;if(!A)return out;
+  const e=cavityE(p);if(e)out.set(...A.cav.t).multiplyScalar(e);
+  const r=PART.rampRate||0;if(r){const a=FIELD.A(p.x,p.y,p.z);out.x-=a[0]*r;out.y-=a[1]*r;out.z-=a[2]*r}
+  return out;
+}
+// how strongly the magnets are ramping: 1 when the field rises by 10 % of its injection value per turn
+function rampLevel(){const A=cfg.accel,sp=PART.list[0]?.vel.length()||A.v0;return Math.min(1,Math.abs(PART.rampRate||0)*2*Math.PI*A.R/sp/.1)}
+const _ed=new THREE.Vector3();
+function updateEField(){
+  const A=cfg.accel,on=!!A&&PART.showE;
+  EF.rf.begin();EF.ind.begin();
+  if(on&&EF.cav&&PART.mode!=='setup'&&rfField()){
+    const c=Math.cos(PART.rfPh||0);
+    if(Math.abs(c)>.04){_ed.copy(EF.cav.t).multiplyScalar(Math.sign(c));const L=A.cav.L*.95*Math.abs(c);
+      for(const p of EF.cav.pts)EF.rf.add(p,_ed,L,A.a*.055)}
+  }
+  const g=on&&EF.samp&&PART.mode!=='setup'?rampLevel():0;
+  if(g>.01){
+    const sg=-Math.sign(PART.rampRate);EF.ind.opacity((.25+.6*g)*(INS.on?.5:1));
+    for(const s of EF.samp){const f=s.A.length()/EF.Amax,L=.45*f*g;if(L<.03)continue;
+      _ed.copy(s.A).multiplyScalar(sg/s.A.length());EF.ind.add(s.p,_ed,L,INS.on?.008:.014)}
+  }
+  EF.rf.end();EF.ind.end();
+  // magnets brighten as their current ramps up, and glow while it is changing (dB/dt ≠ 0)
+  if(cfg.magMats){const f=Math.max(0,((PART.ramp||1)-1)/2);
+    for(const m of Object.values(cfg.magMats)){m.opacity=Math.min(.8,m.userData.op*(1+1.4*f)+.12*g)*(INS.on?.45:1);m.emissive.copy(m.color).multiplyScalar(.55*f+.45*g)}}
+  // the cavity glows green while its field points along the beam, orange while it points backwards
+  if(cfg.cavMesh){const m=cfg.cavMesh.material,c=on&&PART.mode!=='setup'&&rfField()?Math.cos(PART.rfPh||0):0;
+    m.opacity=(INS.on?.12:.22)+.4*Math.abs(c);m.emissive.set(c>=0?0x89d185:0xf48771).multiplyScalar(.9*Math.abs(c))}
+}
+// time trace: dipole field (ramp) and the RF field in the cavity
+function drawScope(){
+  const cv=$('#accscope');if(!cv||!cfg.accel)return;
+  const dpr=Math.min(2,devicePixelRatio||1),W=Math.round(cv.clientWidth*dpr),H=Math.round(cv.clientHeight*dpr);
+  if(!W||!H)return;if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}
+  const g=cv.getContext('2d'),hs=PART.scope,A=cfg.accel,sp=PART.list[0]?.vel.length()||A.v0;
+  const win=2.5*2*Math.PI*A.R/Math.max(sp,1e-6),t1=Math.max(PART.simT,win*.25),t0=t1-win,X=t=>(t-t0)/win*W;
+  g.clearRect(0,0,W,H);g.strokeStyle='#333';g.lineWidth=dpr;g.beginPath();g.moveTo(0,H/2);g.lineTo(W,H/2);g.stroke();
+  // dB/dt as a shaded band under the field curve
+  const yB=r=>H-4*dpr-((r-.8)/2.4)*(H-8*dpr),yE=c=>H/2-c*(H/2-5*dpr);
+  g.fillStyle='rgba(79,193,255,.13)';g.beginPath();let first=true;
+  for(const s of hs)if(s[0]>=t0){const x=X(s[0]);if(first){g.moveTo(x,H);first=false}g.lineTo(x,yB(s[1]))}
+  if(!first){g.lineTo(X(hs[hs.length-1][0]),H);g.fill()}
+  for(const [i,col,y] of [[2,E_COL,yE],[1,'#4fc1ff',yB]]){g.strokeStyle=col;g.lineWidth=1.6*dpr;g.beginPath();let f=true;
+    for(const s of hs)if(s[0]>=t0){const x=X(s[0]),v=y(s[i]);f?g.moveTo(x,v):g.lineTo(x,v);f=false}g.stroke()}
+  if(!hs.length){g.fillStyle='#6f6f6f';g.font=`${11*dpr}px system-ui,sans-serif`;g.fillText('run to record',8*dpr,14*dpr)}
+}
+
+/* modes */
+function play(){
+  if(!PART.list.length)return;
+  if(PART.mode==='setup'){for(const a of PART.list){applyInit(a);resetTrail(a)}PART.ramp=1;PART.rfMax=false;PART.turns=0;PART.lastTh=0;PART.rampRate=0;PART.rfPh=0;PART.simT=0;PART.scope=[];INS.hist=[];INS.simT=0}
+  PART.mode='run';PART.used=true;PART.list.forEach(syncVis);refreshUI();
+}
+function pauseRun(){PART.mode='pause';refreshUI()}
+function togglePlay(){PART.mode==='run'?pauseRun():play()}
+function resetRun(){
+  PART.mode='setup';PART.ramp=1;PART.rfMax=false;PART.turns=0;PART.rampRate=0;PART.rfPh=0;PART.simT=0;PART.scope=[];if(cfg?.accel)recolorAll();
+  for(const a of PART.list){a.n=0;a.trail.geometry.setDrawRange(0,0);applyInit(a)}
+  refreshUI();
+}
+function refreshUI(){PART.list.forEach(syncVis);syncToolbar();buildParticlePanel();updateGizmo();updateHint()}
+function selectP(a){PART.sel=a;if(!a&&INS.on)exitInspect();if(INS.on)INS.fresh=true;buildParticlePanel();updateGizmo();syncToolbar()}
+
+/* working plane + gizmo */
+function setPlane(key,snap){
+  PART.plane=key;
+  if(key==='view'){PART.viewN.copy(camera.position).sub(controls.target).normalize();PART.p0.copy(controls.target)}
+  else PART.p0.set(0,0,0);
+  PART.n.copy(planeNormal(key));
+  if(snap&&key!=='view')flyTo(PART.n);
+  updateGizmo();syncToolbar();
+}
+// the gizmo shows the selected charge's plane while setting up, otherwise the working plane
+function updateGizmo(){
+  const a=PART.sel;
+  if(a&&PART.mode==='setup'){const {n}=initState(a);planeGroup.position.copy(n).multiplyScalar(a.w);planeGroup.quaternion.setFromUnitVectors(Y,n)}
+  else{planeGroup.position.copy(PART.p0);planeGroup.quaternion.setFromUnitVectors(Y,PART.n)}
+}
+function onFieldChanged(){           // geometry, current or B changed
+  if(!cfg.uniform)FIELD.load(buildSegs(cfg.phys),RW);
+  cfg.I0=P().I||1;
+  buildEField();
+  const Bref=sceneBref();
+  cfg.qm0=cfg.accel?cfg.accel.qm:niceNum(1/Bref);
+  // typical |q v×B|/m in the scene → force arrows about 0.9 m long at typical strength
+  cfg.aRef=cfg.accel?cfg.accel.v0**2/(.6*cfg.accel.R):2*cfg.qm0*Bref;cfg.fk=.9/cfg.aRef;
+  if(PART.plane==='perpB')PART.n.copy(Bhat());
+  if(PART.mode==='setup')PART.list.forEach(applyInit);
+  updateGizmo();buildParticlePanel();
+}
+let camAnim=null;
+function flyTo(n){
+  const t=controls.target,off=camera.position.clone().sub(t),dist=off.length(),d0=off.normalize();
+  const d1=n.clone();                                   // always view from +n so screen axes match the panel
+  if(Math.abs(d1.y)>.995){d1.z+=.006;d1.normalize()}
+  camAnim={d0,dist,q:new THREE.Quaternion().setFromUnitVectors(d0,d1),t0:performance.now()};
+}
+const _qa=new THREE.Quaternion();
+function stepCamAnim(){
+  if(!camAnim)return;
+  const k=Math.min(1,(performance.now()-camAnim.t0)/480),e=1-Math.pow(1-k,3);
+  _qa.identity().slerp(camAnim.q,e);
+  camera.position.copy(controls.target).addScaledVector(camAnim.d0.clone().applyQuaternion(_qa),camAnim.dist);
+  if(k>=1)camAnim=null;
+}
+
+/* pointer interaction: click selects, drag moves a charge within its plane (setup only) */
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),cvs=renderer.domElement;
+function setRay(e){const r=cvs.getBoundingClientRect();ndc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(ndc,camera)}
+function hitPlane(n,p0){
+  const pl=new THREE.Plane().setFromNormalAndCoplanarPoint(n,p0),out=new THREE.Vector3();
+  if(Math.abs(ray.ray.direction.dot(n))>.2)return ray.ray.intersectPlane(pl,out);
+  const vn=camera.getWorldDirection(new THREE.Vector3());
+  if(!ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(vn,p0),out))return null;
+  return pl.projectPoint(out,new THREE.Vector3());
+}
+function pick(e){
+  const r=cvs.getBoundingClientRect();let best=null,bd=18;
+  for(const a of PART.list){
+    if(a.hidden)continue;
+    const s=a.pos.clone().project(camera);if(s.z>1)continue;
+    const d=Math.hypot((s.x+1)/2*r.width+r.left-e.clientX,(1-s.y)/2*r.height+r.top-e.clientY);
+    if(d<bd){bd=d;best=a}
+  }
+  return best;
+}
+// Inspect: drag to look around the charge, double-click to return behind it
+view.addEventListener('pointerdown',e=>{
+  if(!INS.on||e.target!==cvs||e.button!==0)return;
+  e.stopImmediatePropagation();e.preventDefault();INS.drag={x:e.clientX,y:e.clientY};cvs.style.cursor='grabbing';
+},{capture:true});
+addEventListener('pointermove',e=>{
+  if(!INS.drag)return;
+  INS.yaw-=(e.clientX-INS.drag.x)*.006;INS.pitch=Math.max(-1.45,Math.min(1.45,INS.pitch+(e.clientY-INS.drag.y)*.006));
+  INS.drag={x:e.clientX,y:e.clientY};
+});
+addEventListener('pointerup',()=>{if(INS.drag){INS.drag=null;cvs.style.cursor=''}});
+view.addEventListener('dblclick',e=>{if(INS.on&&e.target===cvs){INS.yaw=0;INS.pitch=.4}});
+view.addEventListener('pointerdown',e=>{
+  if(!cfg||e.target!==cvs||e.button!==0)return;
+  setRay(e);const hit=pick(e),setup=PART.mode==='setup';
+  if(hit){
+    e.stopPropagation();e.preventDefault();if(!chargeUI())setTab('charges');selectP(hit);
+    if(setup)PART.drag={a:hit,x:e.clientX,y:e.clientY,moved:false};
+    return;
+  }
+  if(PART.tool!=='orbit'&&setup&&chargeUI()){
+    const pt=hitPlane(PART.n,PART.p0);if(!pt)return;
+    e.stopPropagation();e.preventDefault();
+    const pl=PART.plane==='view'?{key:'view',n:PART.viewN.clone()}:{key:PART.plane},{e1,e2,n}=basisOf(planeN(pl));
+    const a=makeParticle({sign:PART.tool==='pos'?1:-1,plane:pl,u:pt.dot(e1),v:pt.dot(e2),w:pt.dot(n)});
+    PART.used=true;selectP(a);updateHint();
+    PART.drag={a,x:e.clientX,y:e.clientY,moved:false};
+    return;
+  }
+  PART.click={x:e.clientX,y:e.clientY};          // orbit drag, or a click on empty space (= deselect)
+},{capture:true});
+addEventListener('pointermove',e=>{
+  if(PART.click&&Math.hypot(e.clientX-PART.click.x,e.clientY-PART.click.y)>4)PART.click=null;
+  const D=PART.drag;
+  if(D){
+    if(Math.hypot(e.clientX-D.x,e.clientY-D.y)>4)D.moved=true;
+    if(!D.moved)return;
+    setRay(e);const a=D.a,{e1,e2,n}=initState(a),pt=hitPlane(n,n.clone().multiplyScalar(a.w));
+    if(pt){a.u=pt.dot(e1);a.v=pt.dot(e2);applyInit(a);syncInspector()}
+    return;
+  }
+  if(!cfg||e.target!==cvs)return;
+  const h=pick(e);
+  cvs.style.cursor=h?(PART.mode==='setup'?'grab':'pointer'):(PART.tool!=='orbit'&&PART.mode==='setup'&&chargeUI()?'crosshair':'');
+});
+addEventListener('pointerup',()=>{
+  if(PART.drag){PART.drag=null}
+  else if(PART.click&&PART.sel&&chargeUI()){selectP(null)}
+  PART.click=null;
+});
+function updateHint(){
+  const h=$('#hint');
+  h.textContent=PART.mode==='setup'?'Pick + or − and click the plane to place a charge · select it to set its velocity in the panel · Space runs':'';
+  h.classList.toggle('on',!!cfg&&chargeUI()&&!PART.used&&!PART.list.length);
+}
+function setTool(t){PART.tool=t;cvs.style.cursor=t!=='orbit'&&PART.mode==='setup'?'crosshair':'';syncToolbar()}
+
+/* off-screen indicators + follow camera */
+const offs=$('#offs'),offEls=new Map(),_s3=new THREE.Vector3();let statTick=0,lastRamp=1;
+function updateUniformOverlay(dt){
+  if(!cfg)return;
+  const W=view.clientWidth,H=view.clientHeight;
+  for(const a of PART.list){
+    let el=offEls.get(a.id);
+    if(!el){el=document.createElement('div');el.className='offi';offs.appendChild(el);offEls.set(a.id,el)}
+    _s3.copy(a.pos).project(camera);
+    const behind=_s3.z>1;let x=_s3.x,y=_s3.y;if(behind){x=-x;y=-y}
+    const inside=!behind&&Math.abs(x)<.98&&Math.abs(y)<.97;
+    if(a.hidden||inside){el.style.display='none';continue}
+    const k=Math.min(.93/Math.max(Math.abs(x),1e-6),.9/Math.max(Math.abs(y),1e-6));
+    el.style.display='block';el.style.setProperty('--c',colOf(a));
+    el.style.transform=`translate(${(x*k+1)/2*W}px,${(1-y*k)/2*H}px) rotate(${Math.atan2(-y,x)}rad)`;
+    el.classList.toggle('sel',a===PART.sel);
+  }
+  // markers keep a constant on-screen size however far you zoom (pixels → world units)
+  const ort=camera.isOrthographicCamera,kp=2*Math.tan(camera.fov*Math.PI/360)/Math.max(1,H);
+  const wppAt=p=>ort?2*orthoH/ortho.zoom/Math.max(1,H):camera.position.distanceTo(p)*kp;
+  for(const a of PART.list){a.sprite.scale.setScalar(30*wppAt(a.pos));a.mark.scale.setScalar(15*wppAt(a.mark.position))}
+  if(PART.sel)selRing.scale.setScalar(54*wppAt(PART.sel.pos));
+  const s=PART.sel;
+  selRing.visible=!!s&&!s.hidden;if(s)selRing.position.copy(s.pos);
+  updateForces();
+  if(PART.mode==='run'&&statTick%10===0)PART.list.forEach(updateRow);
+  if(cfg.accel&&++statTick%10===0){
+    const st=$('#simstat');
+    if(st){const sp=PART.list[0]?.vel.length()||0;
+      const A=cfg.accel,E0=rfField(),rr=PART.rampRate||0,emf=-EF.circ*rr,rfV=E0*A.cav.L;
+      st.innerHTML=`Turn <b>${PART.turns}</b> · q1 speed <b>${sp.toFixed(2)} m/s</b> · magnets <b>${Math.round(PART.ramp*P().dip)} %</b>`+
+        `<br>Dipole field <b>${fmtB(A.Bd*(PART.ramp||1))}</b> · dB/dt <b>${fmtB(Math.abs(A.Bd*rr))}/s</b>`+
+        (E0?`<br>RF field <b>${(Math.cos(PART.rfPh||0)>=0?'forward':'backward')}</b> · ${(Math.abs(Math.cos(PART.rfPh||0))*100).toFixed(0)} % of peak`:'')+
+        (E0&&Math.abs(rr)>1e-9?`<br>Induced EMF per turn: <b>${(emf/rfV*100).toFixed(2)} %</b> of the RF kick`:'')+
+        (PART.rfMax?'<br>Magnets at maximum field: RF switched off.':'')}
+    drawScope();
+    if(Math.abs((PART.ramp||1)-lastRamp)>.03){lastRamp=PART.ramp||1;recolorAll()}
+  }
+  if(PART.follow&&s&&!camAnim&&!INS.on){
+    const d=s.pos.clone().sub(controls.target),k=PART.mode==='run'?Math.min(1,dt*20):Math.min(1,dt*6);   // tight while running so fast charges stay centred
+    controls.target.addScaledVector(d,k);camera.position.addScaledVector(d,k);
+  }
+}
+
+/* ---------- presets (every scene) ----------
+   Each preset lists charges in world coordinates. `r` asks for a starting gyroradius:
+   q/m is then chosen from the local field so the first loop has that radius
+   (qmRef = point whose field sets it; defaults to the start point). */
+const PRESETS={
+  infwire:[
+    {k:'par',label:'Parallel to I',title:'Moving along the current: it gyrates while being pulled towards the wire, like two parallel currents attracting',make:()=>[{p:[1.5,0,0],v:[0,1.2,0],r:.45}]},
+    {k:'anti',label:'Against I',title:'Moving against the current: pushed away from the wire',make:()=>[{p:[1.5,0,0],v:[0,-1.2,0],r:.45}]},
+    {k:'toward',label:'Toward the wire',title:'Fired straight at the wire: deflected along it',make:()=>[{p:[2.6,0,0],v:[-1.2,0,0],r:.6}]},
+    {k:'pm',label:'± pair',title:'Same start, opposite charges: mirror-image paths',make:()=>[{p:[1.5,0,0],v:[0,1.2,0],r:.45},{p:[1.5,0,0],v:[0,1.2,0],r:.45,sign:-1}]}],
+  finwire:[
+    {k:'beside',label:'Beside the wire',title:'Moving along the wire: gyrates and is drawn in',make:p=>[{p:[-p.W/2+1,0,0],v:[0,1,0],r:.4}]},
+    {k:'cross',label:'Across the wire',title:'Fired across the wire at mid-height',make:p=>[{p:[-p.W/2+2,0,.4],v:[-1.2,0,0],r:.5}]},
+    {k:'pm',label:'± pair',title:'Same start, opposite charges',make:p=>[{p:[-p.W/2+1,0,0],v:[0,1,0],r:.4},{p:[-p.W/2+1,0,0],v:[0,1,0],r:.4,sign:-1}]}],
+  random:[
+    {k:'fan',label:'Fan',title:'Six charges fired from the centre in different directions',make:()=>[0,1,2,3,4,5].map(i=>{const a=i*Math.PI/3;return {p:[0,0,0],v:[1.2*Math.cos(a),.7*Math.sin(a),1.2*Math.sin(a)*.8],r:.5,qmRef:[0,0,0]}})},
+    {k:'pm',label:'± pair',title:'Same start, opposite charges',make:()=>[{p:[0,0,0],v:[1.2,0,0],r:.5},{p:[0,0,0],v:[1.2,0,0],r:.5,sign:-1}]}],
+  loop:[
+    {k:'axis',label:'Along the axis',title:'On the axis B is parallel to v: no force, it passes straight through',make:()=>[{p:[0,-3.5,0],v:[0,1.2,0]}]},
+    {k:'off',label:'Off-axis pass',title:'Parallel to the axis but off-centre: twisted as it crosses the loop',make:p=>[{p:[.55*p.R,-3.5,0],v:[0,1.2,0],qmRef:[0,0,0],r:.6}]},
+    {k:'circ',label:'Circling inside',title:'In the loop plane, moving sideways: gyrates around the strong central field',make:p=>[{p:[.35*p.R,0,0],v:[0,0,1],r:.35}]},
+    {k:'pm',label:'± pair',title:'Opposite charges through the loop, off-axis',make:p=>[{p:[.55*p.R,-3.5,0],v:[0,1.2,0],qmRef:[0,0,0],r:.6},{p:[.55*p.R,-3.5,0],v:[0,1.2,0],qmRef:[0,0,0],r:.6,sign:-1}]}],
+  stacked:[
+    {k:'axis',label:'Along the axis',title:'No force on the axis',make:()=>[{p:[0,-3,0],v:[0,1.2,0]}]},
+    {k:'circ',label:'Circling inside',title:'Gyrates inside the coil',make:p=>[{p:[.3*p.R,0,0],v:[0,0,1],r:.3}]},
+    {k:'bottle',label:'Magnetic bottle',title:'Two loops far apart: the field is stronger at the loops than between them, so a charge with mostly sideways velocity bounces back and forth (magnetic mirror)',
+      params:{N:2,R:.5,s:1},make:()=>[{p:[.06,0,0],v:[0,.45,1.05],r:.06}]}],
+  infsol:[
+    {k:'cyc',label:'Cyclotron circle',title:'Uniform field inside: a perfect circle',make:p=>[{p:[.4*p.R,0,0],v:[0,0,1],r:.3*p.R}]},
+    {k:'helix',label:'Helix',title:'Some velocity along the axis: a helix along the field',make:p=>[{p:[.4*p.R,-3,0],v:[0,.35,1],r:.3*p.R}]},
+    {k:'inout',label:'Inside / outside',title:'Same charge and speed: circles inside, almost no force outside',make:p=>[{p:[.4*p.R,0,0],v:[0,0,1],r:.3*p.R},{p:[p.R+1.2,0,0],v:[0,0,1],r:.3*p.R,qmRef:[0,0,0]}]}],
+  finsol:[
+    {k:'cyc',label:'Cyclotron circle',title:'Near the centre the field is nearly uniform: a circle',make:p=>[{p:[.4*p.R,0,0],v:[0,0,1],r:.3*p.R}]},
+    {k:'end',label:'Out of the end',title:'A helix that leaves the coil: it widens as the field weakens and spreads at the end',make:p=>[{p:[.3*p.R,-.25*p.Ls,0],v:[0,.5,1],r:.25*p.R}]},
+    {k:'axis',label:'Along the axis',title:'No force on the axis',make:p=>[{p:[0,-p.Ls/2-2,0],v:[0,1.2,0]}]}],
+  toroid:[
+    {k:'trap',label:'Trapped in the tube',title:'Follows the field around the torus but drifts vertically (curvature and gradient drift) and escapes: why tokamaks add a twisting field',
+      make:p=>[{p:[p.Rm,0,0],v:[.5,0,1.5],r:.08}]},
+    {k:'hole',label:'Through the hole',title:'Through the central hole: only the weak field of the winding\'s net circular current acts',make:()=>[{p:[0,-2,0],v:[0,1.2,0]}]},
+    {k:'inout',label:'Inside / outside',title:'Same charge: gyrates inside the tube, nearly free outside',make:p=>[{p:[p.Rm,0,0],v:[.5,0,1.5],r:.08},{p:[p.Rm+p.r+.8,0,0],v:[0,0,1.5],r:.08,qmRef:[p.Rm,0,0]}]}],
+  uniform:[
+    {k:'pair',label:'± pair',title:'+ and − with the same start: equal circles, opposite senses',plane:'perpB',make:()=>{const {e1}=basisOf(Bhat());return [{p:[0,0,0],v:e1.clone().multiplyScalar(2).toArray()},{p:[0,0,0],v:e1.clone().multiplyScalar(2).toArray(),sign:-1}]}},
+    {k:'helix',label:'Helix',title:'Velocity tilted towards B: a helix',plane:'xy',make:()=>{const b=Bhat(),{e1}=basisOf(b),c=Math.cos(.26),s=Math.sin(.26);return [{p:b.clone().multiplyScalar(-5).toArray(),v:e1.clone().multiplyScalar(2.5*c).addScaledVector(b,2.5*s).toArray()}]}},
+    {k:'fan',label:'Speed fan',title:'Four speeds: nested circles, same period',plane:'perpB',make:()=>{const {e1}=basisOf(Bhat());return [1,2,3,4].map(s=>({p:[0,0,0],v:e1.clone().multiplyScalar(s).toArray()}))}},
+    {k:'mass',label:'Mass ratio',title:'q/m and q/3m: radius and period scale with m',plane:'perpB',make:()=>{const {e1}=basisOf(Bhat()),v=e1.clone().multiplyScalar(1.5).toArray();return [{p:[0,0,0],v},{p:[0,0,0],v,qm:cfg.qm0/3}]}},
+    {k:'hpair',label:'Helix pair',title:'+ and − helices: opposite handedness',plane:'xy',make:()=>{const b=Bhat(),{e1}=basisOf(b),v=e1.clone().multiplyScalar(2.2).addScaledVector(b,.7).toArray(),p=b.clone().multiplyScalar(-5).toArray();return [{p,v},{p,v,sign:-1}]}}],
+  accel:[
+    {k:'bunch',label:'Inject bunch',title:'One charge on the design orbit and four offset 5 cm sideways and up/down: they oscillate around it (betatron motion) as the quadrupoles alternately focus and defocus',params:{rf:0},make:()=>accelBeam([[0,0],[.05,0],[-.05,0],[0,.05],[0,-.05]])},
+    {k:'acc',label:'Accelerate',title:'RF on: the cavity\'s oscillating electric field adds energy every turn, and the magnets ramp up with the beam (a synchrotron)',params:{rf:35},timeScale:4,make:()=>accelBeam([[0,0],[.03,0],[0,.03]])},
+    {k:'beta',label:'Betatron',title:'A single charge 8 cm off the orbit: watch the force flip between QF and QD',params:{rf:0},make:()=>accelBeam([[.08,0]])},
+    {k:'vert',label:'Vertical',title:'Offset 8 cm upwards: vertical focusing comes from the other quadrupole type',params:{rf:0},make:()=>accelBeam([[0,.08]])},
+    {k:'mom',label:'Momentum spread',title:'Speeds −1 %, 0, +1 %: off-momentum orbits shift (dispersion)',params:{rf:0},make:()=>accelBeam([[0,0,.99],[0,0,1],[0,0,1.01]])},
+    {k:'halo',label:'Beam halo',title:'Eight charges on a 6 cm ring around the orbit',params:{rf:0},make:()=>accelBeam(Array.from({length:8},(_,i)=>[.06*Math.cos(i*Math.PI/4),.06*Math.sin(i*Math.PI/4)]))},
+    {k:'sign',label:'Wrong sign',title:'A negative charge bends the wrong way and is lost at once',params:{rf:0},make:()=>accelBeam([[0,0],[0,0,1,-1]])},
+    {k:'slow',label:'Too slow',title:'5 % below design speed: over-bent, spirals inwards and is lost',params:{rf:0},make:()=>accelBeam([[0,0],[0,0,.95]])}],
+};
+function accelBeam(list){
+  const A=cfg.accel;
+  return list.map(([dx,dy,f=1,sign=1])=>({p:[A.R+dx,dy,0],v:[0,0,A.v0*f],sign,qm:A.qm}));
+}
+function qmFor(s){
+  const B=Bat(new THREE.Vector3(...(s.qmRef||s.p)),new THREE.Vector3()),Bm=B.length();
+  if(Bm<1e-15)return cfg.qm0;
+  const v=new THREE.Vector3(...s.v),b=B.multiplyScalar(1/Bm),vp=v.clone().addScaledVector(b,-v.dot(b)).length()||v.length();
+  return vp/(Bm*s.r);
+}
+// place a charge given in world coordinates, choosing a plane that contains its velocity
+function chargeFrom(s,qm){
+  const v=new THREE.Vector3(...s.v),sp=v.length(),p=new THREE.Vector3(...s.p);
+  const cands=[PART.plane,'xy','yz','zx',...(cfg.uniform?['perpB']:[])].filter(k=>k&&k!=='view');
+  let pl=null;
+  for(const k of cands){const n=planeNormal(k);if(Math.abs(v.dot(n))<1e-6*Math.max(sp,1)){pl={key:k};break}}
+  if(!pl){const n=v.clone().cross(Math.abs(v.y)<.9*sp?Y:X).normalize();pl={key:'view',n}}
+  const {e1,e2,n}=basisOf(planeN(pl));
+  return makeParticle({sign:s.sign??1,qm,plane:pl,u:p.dot(e1),v:p.dot(e2),w:p.dot(n),s:sp,th:Math.atan2(v.dot(e2),v.dot(e1))});
+}
+function runPreset(pr){
+  if(INS.on)exitInspect();
+  for(const a of [...PART.list])removeParticle(a);
+  PART.mode='setup';PART.used=true;PART.nextId=1;PART.ramp=1;PART.rfMax=false;PART.turns=0;PART.rampRate=0;PART.rfPh=0;PART.simT=0;PART.scope=[];
+  if(pr.params){
+    const v=VIS_BY[state.vis],live=k=>v.params.find(d=>d.key===k)?.live;
+    const rebuild=Object.entries(pr.params).some(([k,x])=>!live(k)&&P()[k]!==x);
+    Object.assign(P(),pr.params);buildParams();if(rebuild)applyVis(false);
+  }
+  for(const s of pr.make(P(),cfg))chargeFrom(s,s.qm??(s.r?qmFor(s):cfg.qm0));
+  if(pr.timeScale)PART.timeScale=pr.timeScale;
+  PART.sel=PART.list[0];
+  if(pr.plane)setPlane(pr.plane,true);else if(cfg.accel)setPlane('zx',false);
+  refreshUI();
+}
+
+/* ---------- inspect: ride along with the selected charge ----------
+   Chase camera behind the charge, a live grid of B arrows in its cross-section,
+   and a HUD with the vectors, their components and a force history. */
+const INS={on:false,saved:null,hist:[],eye:new THREE.Vector3(),look:new THREE.Vector3(),off:new THREE.Vector3(),lookOff:new THREE.Vector3(),upv:new THREE.Vector3(0,1,0),
+  fresh:true,dist:1,simT:0,fmax:1e-9,yaw:0,pitch:.4,drag:null};
+const GN=11,glyphGroup=new THREE.Group();glyphGroup.visible=false;scene.add(glyphGroup);
+const gCones=new THREE.InstancedMesh(new THREE.ConeGeometry(.5,1,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.95}),GN*GN);
+gCones.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(GN*GN*3),3);gCones.frustumCulled=false;
+const gLineGeo=new THREE.BufferGeometry();
+gLineGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(GN*GN*6),3));
+gLineGeo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(GN*GN*6),3));
+const gLines=new THREE.LineSegments(gLineGeo,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.9}));gLines.frustumCulled=false;
+const gFrame=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>new THREE.Vector3(a,b,0))),new THREE.LineBasicMaterial({color:0x3794ff,transparent:true,opacity:.5}));
+glyphGroup.add(gLines,gCones,gFrame);
+const hud=$('#hud'),hudSvg=$('#hudx'),hudNum=$('#hudnum'),hudC=$('#hudc');
+function insFrame(pos,vel){
+  let t,up;
+  if(cfg.accel){const r=new THREE.Vector3(pos.x,0,pos.z).normalize();t=r.clone().cross(Y);if(t.dot(vel)<0)t.negate();up=Y.clone()}
+  else{
+    t=vel.lengthSq()>1e-12?vel.clone().normalize():Z.clone();
+    up=Y.clone().addScaledVector(t,-t.y);if(up.lengthSq()<1e-4)up=Z.clone().addScaledVector(t,-t.z);up.normalize();
+  }
+  return {t,up,side:up.clone().cross(t)};
+}
+function enterInspect(){
+  if(!PART.sel||INS.on)return;
+  INS.on=true;INS.fresh=true;INS.hist=[];INS.simT=0;INS.fmax=1e-9;INS.yaw=0;INS.pitch=.4;
+  INS.dist=cfg.accel?1.15:Math.max(1.3,cfg.H*.3);
+  INS.saved={cam:camera,pos:camera.position.clone(),target:controls.target.clone(),zoom:ortho.zoom};
+  camera=persp;controls.object=persp;controls.enabled=false;PART.follow=false;
+  lineMesh.material.opacity=.28;planeGroup.visible=axesGroup.visible=false;
+  glyphGroup.visible=true;hud.hidden=false;
+  if(state.tab!=='charges')setTab('charges');
+  placeHud();$('#tabCharges').scrollTop=0;
+  Object.assign(matMain,{transparent:true,opacity:.32,depthWrite:false,needsUpdate:true});Object.assign(matCirc,{transparent:true,opacity:.25,depthWrite:false,needsUpdate:true});
+  conductor.traverse(o=>{if(o.isSprite)o.visible=false;else if(o.material?.transparent&&o.material.opacity<.35&&o.material!==matMain&&o.material!==matCirc)o.material.opacity*=.45});
+  syncToolbar();
+}
+// read-outs live at the top of the Charges tab; if the panel is closed they float top-right
+function placeHud(){
+  const docked=!$('#params').classList.contains('closed')&&state.tab==='charges';
+  if(docked){if(hud.parentNode!==$('#tabCharges'))$('#tabCharges').prepend(hud)}
+  else if(hud.parentNode!==view)view.appendChild(hud);
+  hud.classList.toggle('docked',docked);
+}
+function exitInspect(){
+  if(!INS.on)return;
+  INS.on=false;const s=INS.saved;
+  camera=s.cam;controls.object=camera;camera.position.copy(s.pos);controls.target.copy(s.target);ortho.zoom=s.zoom;ortho.updateProjectionMatrix();
+  controls.enabled=true;lineMesh.material.opacity=.95;glyphGroup.visible=false;hud.hidden=true;
+  Object.assign(matMain,{transparent:false,opacity:1,depthWrite:true,needsUpdate:true});Object.assign(matCirc,{transparent:false,opacity:1,depthWrite:true,needsUpdate:true});camera.up.set(0,1,0);persp.up.set(0,1,0);
+  rebuildConductor();
+  applyChargeUI();
+}
+view.addEventListener('wheel',e=>{if(!INS.on)return;e.preventDefault();e.stopPropagation();INS.dist=Math.min(cfg.H*1.5,Math.max(.3,INS.dist*Math.exp(e.deltaY*.0012)))},{capture:true,passive:false});
+const _gp=new THREE.Vector3(),_gb=new THREE.Vector3(),_gq=new THREE.Quaternion(),_gm=new THREE.Matrix4(),_gs=new THREE.Vector3(),_gc=new THREE.Color();
+function updateInspect(dt){
+  if(!INS.on)return;
+  const a=PART.sel;if(!a||!cfg){exitInspect();return}
+  const setup=PART.mode==='setup',st=setup?initState(a):null,pos=setup?st.p:a.pos.clone(),vel=setup?st.v:a.vel.clone();
+  const {t,up,side}=insFrame(pos,vel);
+  // chase camera: behind and a little above, looking ahead along the path
+  // the camera orbits the charge: yaw/pitch are measured in the charge's own frame (behind = yaw 0),
+  // and the offsets are smoothed relative to the charge so it never drifts off-centre
+  const cp=Math.cos(INS.pitch),dir=side.clone().multiplyScalar(Math.sin(INS.yaw)*cp).addScaledVector(up,Math.sin(INS.pitch)).addScaledVector(t,-Math.cos(INS.yaw)*cp);
+  const offT=dir.multiplyScalar(INS.dist),lookOffT=t.clone().multiplyScalar(INS.dist*.45*Math.max(0,Math.cos(INS.yaw)*cp));
+  const k=INS.fresh||INS.drag?1:Math.min(1,dt*9);INS.fresh=false;
+  INS.off.lerp(offT,k);INS.lookOff.lerp(lookOffT,k);INS.upv.lerp(up,k).normalize();
+  INS.eye.copy(pos).add(INS.off);INS.look.copy(pos).add(INS.lookOff);
+  camera.up.copy(INS.upv);camera.position.copy(INS.eye);controls.target.copy(INS.look);camera.lookAt(INS.look);
+  scene.fog.near=INS.dist*2.5;scene.fog.far=INS.dist*14;
+  // B arrows across the cross-section (centred on the design orbit in the ring, else on the charge)
+  const ctr=cfg.accel?new THREE.Vector3(pos.x,0,pos.z).setLength(cfg.accel.R):pos.clone();
+  const span=cfg.accel?cfg.accel.a*1.15:INS.dist*.36,cell=2*span/(GN-1),Bs=[];let Bmax=1e-30;
+  for(let j=0;j<GN;j++)for(let i=0;i<GN;i++){
+    const p=ctr.clone().addScaledVector(side,-span+i*cell).addScaledVector(up,-span+j*cell),B=Bat(p,new THREE.Vector3());
+    Bs.push([p,B]);Bmax=Math.max(Bmax,B.length());
+  }
+  const lp=gLineGeo.attributes.position.array,lc=gLineGeo.attributes.color.array;
+  Bs.forEach(([p,B],n)=>{
+    const m=B.length(),f=m/Bmax,L=cell*.9*(.3+.7*f),d=m>0?B.multiplyScalar(1/m):t.clone();
+    const c=ramp(.45+.55*f),cl=[lin(c[0]),lin(c[1]),lin(c[2])];
+    const p0=p.clone().addScaledVector(d,-L/2),p1=p.clone().addScaledVector(d,L/2-cell*.25);
+    lp.set([p0.x,p0.y,p0.z,p1.x,p1.y,p1.z],6*n);lc.set([...cl,...cl],6*n);
+    _gq.setFromUnitVectors(Y,d);_gs.set(cell*.12,cell*.24,cell*.12);_gp.copy(p).addScaledVector(d,L/2-cell*.15);
+    _gm.compose(_gp,_gq,_gs);gCones.setMatrixAt(n,_gm);_gc.setRGB(c[0],c[1],c[2],THREE.SRGBColorSpace);gCones.setColorAt(n,_gc);
+  });
+  gLineGeo.attributes.position.needsUpdate=gLineGeo.attributes.color.needsUpdate=true;
+  gCones.instanceMatrix.needsUpdate=true;gCones.instanceColor.needsUpdate=true;
+  gFrame.position.copy(ctr);gFrame.scale.setScalar(span*1.08);gFrame.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(side,up,t));
+  // forces at the charge
+  const B=Bat(pos,new THREE.Vector3()),Fm=vel.clone().cross(B).multiplyScalar(a.sign*a.qm);
+  const Fe=cfg.accel&&!setup?Eat(pos,new THREE.Vector3()).multiplyScalar(a.sign*a.qm):new THREE.Vector3();
+  const F=Fm.clone().add(Fe),comp=v=>[v.dot(side),v.dot(up),v.dot(t)];
+  if(PART.mode==='run'){INS.simT+=dt*PART.timeScale;INS.hist.push([INS.simT,F.dot(side),F.dot(up),B.length()]);if(INS.hist.length>900)INS.hist.shift()}
+  drawHud(a,pos,vel,B,Fm,Fe,{t,up,side},comp);
+}
+function cavityE(p){
+  const A=cfg.accel;if(!A||PART.rfMax)return 0;const E=rfField();if(!E)return 0;
+  const C=A.cav,dx=p.x-C.c[0],dy=p.y-C.c[1],dz=p.z-C.c[2],s=dx*C.t[0]+dy*C.t[1]+dz*C.t[2];
+  return Math.abs(s)<C.L/2&&dx*dx+dy*dy+dz*dz-s*s<A.a*A.a?E*Math.cos(PART.rfPh||0):0;   // signed: E0·cos φ
+}
+const rfField=()=>{                // RF amplitude E0, chosen so a crest crossing adds rf % of the injection energy
+  const A=cfg.accel;return A&&P().rf>0&&!PART.rfMax?P().rf/100*A.v0*A.v0/2/(A.qm*A.cav.L):0};
+function fmtF(x){const a=Math.abs(x);return a>=100?x.toFixed(0):a>=1?x.toFixed(2):x.toFixed(3)}
+function drawHud(a,pos,vel,B,Fm,Fe,fr,comp){
+  const acc=!!cfg.accel,S=176,C=S/2,NS='http://www.w3.org/2000/svg';
+  const L1=acc?'out':'side',L2=acc?'up':'up';
+  let h=`<rect x="0" y="0" width="${S}" height="${S}" rx="10" class="hx-bg"/>`;
+  h+=`<line x1="10" y1="${C}" x2="${S-10}" y2="${C}" class="hx-ax"/><line x1="${C}" y1="10" x2="${C}" y2="${S-10}" class="hx-ax"/>`;
+  h+=`<text x="${S-12}" y="${C-6}" class="hx-l" text-anchor="end">${L1}</text><text x="${C+6}" y="20" class="hx-l">${L2}</text>`;
+  let cx=C,cy=C;
+  if(acc){const A=cfg.accel,k=(C-14)/(A.a*.95),dx=Math.hypot(pos.x,pos.z)-A.R,dy=pos.y;
+    h+=`<circle cx="${C}" cy="${C}" r="${A.a*.85*k}" class="hx-pipe"/><circle cx="${C}" cy="${C}" r="2.5" class="hx-orb"/>`;
+    cx=C+dx*k;cy=C-dy*k;}
+  // vectors from the charge, in the cross-section (side, up)
+  const arrow=(v,len,cls)=>{const m=Math.hypot(v[0],v[1]);if(m<1e-9||len<2)return '';
+    const dx=v[0]/m,dy=-v[1]/m,x2=cx+dx*len,y2=cy+dy*len;          // screen direction (y down)
+    return `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}" class="${cls}"/><path d="M${x2+dx*8} ${y2+dy*8} L${x2-dy*4.5} ${y2+dx*4.5} L${x2+dy*4.5} ${y2-dx*4.5}Z" class="${cls}f"/>`};
+  const Bc=comp(B),Bm=B.length(),Fc=comp(Fm),Ec=comp(Fe),Fmag=Math.hypot(...Fc)+Math.hypot(...Ec);
+  INS.fmax=Math.max(INS.fmax*.995,Fmag);
+  h+=arrow(Bc,Bm>0?62*Math.hypot(Bc[0],Bc[1])/Bm:0,'hx-b');
+  h+=arrow(Fc,62*Math.hypot(Fc[0],Fc[1])/INS.fmax,'hx-f');
+  h+=arrow(Ec,62*Math.abs(Ec[2])/INS.fmax,'hx-e');
+  h+=`<circle cx="${cx}" cy="${cy}" r="7" class="hx-q ${a.sign>0?'pos':'neg'}"/><line x1="${cx-3.5}" y1="${cy-3.5}" x2="${cx+3.5}" y2="${cy+3.5}" class="hx-x"/><line x1="${cx+3.5}" y1="${cy-3.5}" x2="${cx-3.5}" y2="${cy+3.5}" class="hx-x"/>`;
+  hudSvg.innerHTML=h;
+  const bu=Bm>=.1?[1,'T']:Bm>=1e-4?[1e-3,'mT']:[1e-6,'µT'];
+  const sp=vel.length(),row=(l,v,c='')=>`<span class="${c}">${l}</span><b>${v}</b>`;
+  const Ftot=Fm.clone().add(Fe),Ft=comp(Ftot);
+  hudNum.innerHTML=
+    row('speed',sp.toFixed(3)+' m/s')+row('energy/m',(sp*sp/2).toFixed(3)+' J/kg')+
+    row('|B|',fmtB(Bm),'cb')+row(`B ${L1}/up/along`,Bc.map(x=>(x/bu[0]).toFixed(2)).join(' · ')+' '+bu[1],'cb')+
+    row('|F|/m',fmtF(Math.hypot(...Ft))+' m/s²','cf')+row(`F ${L1}`,fmtF(Ft[0]),'cf')+row('F up',fmtF(Ft[1]),'cf')+row('F along',fmtF(Ft[2]),Fe.lengthSq()?'ce':'cf')+(acc?row('qE/m',fmtF(Fe.length())+' m/s²','ce'):'')+
+    (acc?row('turn',PART.turns)+row('magnets',Math.round((PART.ramp||1)*P().dip)+' %'):'');
+  // force history (sideways and vertical components)
+  const g=hudC.getContext('2d'),W=hudC.width,H=hudC.height,dpr=hudC.width/hudC.clientWidth||1;
+  g.clearRect(0,0,W,H);
+  const hs=INS.hist,win=acc?Math.max(4,4*Math.PI*cfg.accel.R/(sp||1)/10):8,t1=INS.simT,t0=t1-win;
+  let m=1e-12,bm=1e-30;for(const s of hs)if(s[0]>=t0){m=Math.max(m,Math.abs(s[1]),Math.abs(s[2]));bm=Math.max(bm,s[3])}
+  const X=t=>(t-t0)/win*W,Yv=v=>H/2-v/m*(H/2-6*dpr);
+  g.fillStyle='rgba(55,148,255,.14)';g.beginPath();g.moveTo(X(t0),H);
+  for(const s of hs)if(s[0]>=t0)g.lineTo(X(s[0]),H-(s[3]/bm)*(H-8*dpr));g.lineTo(X(t1),H);g.fill();
+  g.strokeStyle='#3c3c3c';g.lineWidth=dpr;g.beginPath();g.moveTo(0,H/2);g.lineTo(W,H/2);g.stroke();
+  for(const [i,col] of [[1,'#f48771'],[2,'#c586c0']]){g.strokeStyle=col;g.lineWidth=1.6*dpr;g.beginPath();let f=true;
+    for(const s of hs)if(s[0]>=t0){const x=X(s[0]),y=Yv(s[i]);f?g.moveTo(x,y):g.lineTo(x,y);f=false}g.stroke()}
+  $('#hudlab').innerHTML=`<i class="k1"></i>F ${L1}<i class="k2"></i>F up<i class="k3"></i>|B|<span>${hs.length?win.toFixed(0)+' s':'run to record'}</span>`;
+  $('#hudq').innerHTML=`<span class="dot ${a.sign>0?'pos':'neg'}">${a.sign>0?'+':'−'}</span>q${a.id}${a.lost?' · lost':''}`;
+}
+
+/* side panel → Charges tab: simulation controls, charge list, inspector, presets */
+const pp=$('#ppanel');
+const fmt2=v=>(Math.abs(v)<.005?0:v).toFixed(2);
+const SUP={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+function fmtSci(x,unit){
+  if(x>=.01&&x<1000)return x.toPrecision(2)+' '+unit;
+  const e=Math.floor(Math.log10(x)),m=x/10**e;
+  return `${m.toFixed(1)}×10${String(e).replace(/./g,c=>SUP[c])} ${unit}`;
+}
+function fmtB(b){return b>=.1?b.toFixed(2)+' T':b>=1e-4?(b*1e3).toFixed(2)+' mT':(b*1e6).toFixed(2)+' µT'}
+const chargeMeta=p=>p.lost?'lost: hit the beam pipe':`${fmtSci(p.qm,'C/kg')} · ${(PART.mode==='setup'?p.s:p.vel.length()).toFixed(2)} m/s`;
+function buildParticlePanel(){
+  const badge=document.querySelector('[data-tab=charges] .badge');
+  if(badge){badge.textContent=PART.list.length||'';badge.hidden=!PART.list.length}
+  if(state.tab!=='charges'||!cfg){return}
+  const v=VIS_BY[state.vis],setup=PART.mode==='setup',a=PART.sel;
+  const status=setup?(PART.list.length?'Setup — edit the charges, then run.':'Setup — add charges to start.')
+    :PART.mode==='run'?'Running.':'Paused.';
+  const PRE=PRESETS[state.vis]||[];
+  let h=PRE.length?`<div class="sec">Presets</div><div class="plist"><div class="pgrid">${PRE.map(r=>`<button class="btn" data-preset="${r.k}" title="${r.title||''}">${r.label}</button>`).join('')}</div></div>`:'';
+  h+=`<div class="sec">Simulation</div><div class="plist">
+      <div class="simrow">
+        <button class="btn" data-sim="play" ${PART.list.length?'':'disabled'}>${PART.mode==='run'?ICON.pause+'<span>Pause</span>':ICON.play+`<span>${PART.mode==='pause'?'Resume':'Run'}</span>`}</button>
+        <button class="btn" data-sim="reset" ${setup?'disabled':''}>${ICON.reset}<span>Reset</span></button></div>
+      <div id="simspeed"></div>
+      <div class="trow"><span class="fk"><i></i>Force arrows</span><button class="tg${PART.showForce?'':' off'}" data-force>${PART.showForce?'On':'Off'}</button></div>
+      ${cfg.accel?`<div class="trow"><span class="fk fe"><i></i>Electric field</span><button class="tg${PART.showE?'':' off'}" data-efield>${PART.showE?'On':'Off'}</button></div>`:''}
+      <div class="note">${status} ${v.uniform?'':'Charges move in the Biot–Savart field of this conductor; they don\'t act on it or on each other.'} Yellow arrows show the magnetic force q v × B${cfg.accel?', green the electric force qE (pale green, drawn ×1000, when only the weak induced field acts). The magnetic force only steers; every bit of speed comes from E: the RF cavity\'s oscillating field (bright green arrows in the gap) and, while the magnets ramp, the weak field they induce, E = −∂A/∂t (pale green arrows curling around each magnet)':''}.</div>
+      ${cfg.accel?`<div class="simstat" id="simstat"></div><canvas id="accscope"></canvas>
+        <div class="sclg"><span><i style="background:#4fc1ff"></i>dipole field B</span><span><i style="background:${E_COL}"></i>RF field in the cavity (+ forward)</span></div>`:''}</div>
+    <div class="sec sech"><span>Charges</span><span class="sbtn">
+      <button data-add="1" title="Add a positive charge on the working plane" ${setup?'':'disabled'}><span class="dot pos">+</span></button>
+      <button data-add="-1" title="Add a negative charge on the working plane" ${setup?'':'disabled'}><span class="dot neg">−</span></button></span></div>
+    <div class="plist"><div class="clist">`;
+  if(!PART.list.length)h+=`<div class="empty">No charges yet. Use + / − here or in the toolbar${v.uniform?', or a preset':''}.</div>`;
+  for(const p of PART.list)h+=`<div class="crow${p===a?' sel':''}${p.hidden?' hid':''}" data-id="${p.id}">
+      <span class="dot ${p.sign>0?'pos':'neg'}">${p.sign>0?'+':'−'}</span><span class="cname">q${p.id}</span>
+      <span class="cmeta">${chargeMeta(p)}</span>
+      <button class="ib" data-eye title="${p.hidden?'Show':'Hide'}">${p.hidden?ICON.eyeOff:ICON.eye}</button>
+      <button class="ib" data-del title="Delete">${ICON.x}</button></div>`;
+  h+=`</div></div>`;
+  if(a)h+=`<div class="sec">q${a.id} · ${setup?'initial conditions':'running'}</div><div class="plist" id="insp"></div>`;
+  pp.innerHTML=h;
+  // simulation speed slider
+  { const box=$('#simspeed'),row=document.createElement('div');row.className='row';
+    row.innerHTML=`<div class="lab"><span>Simulation speed</span><span class="val"></span></div>`;
+    const inp=document.createElement('input');Object.assign(inp,{type:'range',min:.1,max:10,step:.1,value:PART.timeScale});
+    const sync=()=>{row.querySelector('.val').textContent=PART.timeScale.toFixed(1)+'×';setFill(inp)};
+    inp.oninput=()=>{PART.timeScale=+inp.value;sync()};row.appendChild(inp);box.appendChild(row);sync(); }
+  pp.querySelector('[data-sim=play]').onclick=togglePlay;
+  pp.querySelector('[data-force]').onclick=()=>{PART.showForce=!PART.showForce;buildParticlePanel()};
+  pp.querySelector('[data-efield]')?.addEventListener('click',()=>{PART.showE=!PART.showE;buildParticlePanel()});
+  pp.querySelector('[data-sim=reset]').onclick=resetRun;
+  pp.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+    const pl=PART.plane==='view'?{key:'view',n:PART.viewN.clone()}:{key:PART.plane},{e1,e2,n}=basisOf(planeN(pl));
+    const p0=PART.p0,o=makeParticle({sign:+b.dataset.add,plane:pl,u:p0.dot(e1),v:p0.dot(e2),w:p0.dot(n)});
+    PART.used=true;updateHint();selectP(o);syncToolbar();
+  });
+  pp.querySelectorAll('.crow').forEach(r=>{
+    const p=PART.list.find(q=>q.id===+r.dataset.id);
+    r.onclick=e=>{if(e.target.closest('[data-eye],[data-del]'))return;selectP(p===PART.sel?null:p)};
+    r.querySelector('[data-eye]').onclick=()=>{p.hidden=!p.hidden;syncVis(p);buildParticlePanel()};
+    r.querySelector('[data-del]').onclick=()=>{removeParticle(p);refreshUI()};
+  });
+  pp.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>runPreset(PRE.find(r=>r.k===b.dataset.preset)));
+  if(a)buildInspector(a,setup);
+}
+let insp=null;     // live handles into the inspector, for cheap updates while dragging
+const _Bi=new THREE.Vector3();
+function buildInspector(a,setup){
+  const box=$('#insp'),{e1,e2,n,p:p0}=initState(a),uni=!!cfg.uniform;
+  const L1=axisLabel(e1,'u'),L2=axisLabel(e2,'v'),LN=axisLabel(n,'n');
+  const dis=setup?'':'disabled',E=Math.max(6,cfg.H*1.2);
+  const keys=['xy','yz','zx',...(uni?['perpB']:[]),'view'];
+  box.innerHTML=`
+    <div class="trow"><span>Sign</span><span class="mseg">
+      <button data-sign="1" class="${a.sign>0?'on':''}" ${dis}>+</button><button data-sign="-1" class="${a.sign<0?'on':''}" ${dis}>−</button></span></div>
+    <div class="trow"><span>Plane</span><span class="mseg">${keys.map(k=>
+      `<button data-pl="${k}" class="${a.plane.key===k?'on':''}" ${dis} title="${k==='view'?'The plane facing you right now':'Velocity and drag stay in '+PLANE_NAME[k]}">${PLANE_NAME[k]}</button>`).join('')}</span>
+      <button class="ib" data-look title="Look at this plane">${ICON.look}</button></div>
+    <div class="padwrap"><svg class="pad" viewBox="0 0 176 176" width="176" height="176"></svg></div>
+    <div id="islid"></div>
+    <div class="rgrid" id="ro"></div>
+    ${setup?'':'<div class="note">Reset (R) to edit the initial conditions.</div>'}
+    ${setup?`<button class="btn danger" data-delsel>Delete q${a.id}</button>`:''}`;
+  box.querySelectorAll('[data-sign]').forEach(b=>b.onclick=()=>{setSign(a,+b.dataset.sign);applyInit(a);buildParticlePanel()});
+  box.querySelectorAll('[data-pl]').forEach(b=>b.onclick=()=>{
+    const p=initState(a).p,pl=b.dataset.pl==='view'?{key:'view',n:camera.position.clone().sub(controls.target).normalize()}:{key:b.dataset.pl};
+    const B=basisOf(planeN(pl));a.plane=pl;a.u=p.dot(B.e1);a.v=p.dot(B.e2);a.w=p.dot(B.n);   // keep the charge where it is
+    applyInit(a);buildParticlePanel();updateGizmo();
+  });
+  box.querySelector('[data-look]').onclick=()=>flyTo(initState(a).n);
+  box.querySelector('[data-delsel]')?.addEventListener('click',()=>{removeParticle(a);refreshUI()});
+  // sliders
+  const sl=$('#islid'),rows={};
+  const add=(key,label,min,max,step,get,set,fmt)=>{
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML=`<div class="lab"><span>${label}</span><span class="val"></span></div>`;
+    const inp=document.createElement('input');Object.assign(inp,{type:'range',min,max,step,value:get(),disabled:!setup});
+    const val=row.querySelector('.val');
+    const sync=()=>{inp.value=get();val.textContent=fmt(get());setFill(inp)};
+    inp.oninput=()=>{set(+inp.value);applyInit(a);syncInspector();updateRow(a)};
+    row.appendChild(inp);sl.appendChild(row);rows[key]=sync;sync();
+  };
+  add('s','Speed',0,VMAX,.05,()=>a.s,v=>a.s=v,v=>v.toFixed(2)+' m/s');
+  add('th','Direction',-180,180,1,()=>Math.round(a.th*180/Math.PI),v=>a.th=v*Math.PI/180,v=>`${Math.round(v)}° from ${L1}`);
+  // charge-to-mass ratio (the only particle property the motion depends on), log scale around the
+  // value that makes the cyclotron rate ≈ 1 rad/s in this scene's typical field
+  const q0=cfg.qm0,lo=Math.log10(Math.min(q0/30,a.qm)),hi=Math.log10(Math.max(q0*30,a.qm));
+  add('qm','Charge / mass  |q|/m',lo,hi,.01,()=>Math.log10(a.qm),v=>{const x=10**v,e=10**Math.floor(Math.log10(x));a.qm=Math.round(x/e*10)/10*e},v=>fmtSci(10**v,'C/kg'));
+  add('u','Position along '+L1,-E,E,.05,()=>a.u,v=>a.u=v,v=>fmt2(v)+' m');
+  add('v','Position along '+L2,-E,E,.05,()=>a.v,v=>a.v=v,v=>fmt2(v)+' m');
+  add('w','Plane offset '+LN,-E,E,.05,()=>a.w,v=>{a.w=v;updateGizmo()},v=>fmt2(v)+' m');
+  // velocity pad: the disc IS the charge's plane, seen from +n (same orientation as "look at plane")
+  const svg=box.querySelector('.pad'),C=88,R=74,k=R/VMAX,NS='http://www.w3.org/2000/svg';
+  const mk=(t,at)=>{const el=document.createElementNS(NS,t);for(const q in at)el.setAttribute(q,at[q]);svg.appendChild(el);return el};
+  for(let s=1;s<=VMAX;s++)mk('circle',{cx:C,cy:C,r:s*k,class:s===VMAX?'pring outer':'pring'});
+  mk('line',{x1:C-R,y1:C,x2:C+R,y2:C,class:'pax'});mk('line',{x1:C,y1:C-R,x2:C,y2:C+R,class:'pax'});
+  mk('text',{x:C+R-2,y:C-5,class:'plab','text-anchor':'end'}).textContent=L1;
+  mk('text',{x:C+5,y:C-R+10,class:'plab'}).textContent=L2;
+  // direction of B at the charge's starting point, relative to this plane
+  const b=Bat(p0,_Bi).clone();const bl=b.length();if(bl>0)b.multiplyScalar(1/bl);
+  const bn=b.dot(n),b1=b.dot(e1),b2=b.dot(e2),bp=Math.hypot(b1,b2),tag=uni?'B':'B here';
+  if(bl>0&&bp>.05){const L=R*.92*bp;mk('line',{x1:C,y1:C,x2:C+b1/bp*L,y2:C-b2/bp*L,class:'pb'});
+    mk('text',{x:C+b1/bp*(L+9),y:C-b2/bp*(L+9)+4,class:'pblab','text-anchor':'middle'}).textContent='B'}
+  if(bl>0&&Math.abs(bn)>.05){const gx=C+R-6,gy=C+R-6;mk('circle',{cx:gx,cy:gy,r:7,class:'pbsym'});
+    if(bn>0)mk('circle',{cx:gx,cy:gy,r:1.8,class:'pbdot'});
+    else{mk('line',{x1:gx-4,y1:gy-4,x2:gx+4,y2:gy+4,class:'pbx'});mk('line',{x1:gx+4,y1:gy-4,x2:gx-4,y2:gy+4,class:'pbx'})}
+    mk('text',{x:gx-12,y:gy+4,class:'pblab','text-anchor':'end'}).textContent=bn>0?tag+' out':tag+' in'}
+  const hl=mk('line',{x1:C,y1:C,class:'pv'}),hd=mk('circle',{r:6.5,class:'ph'});
+  hl.style.stroke=colOf(a);hd.style.fill=colOf(a);
+  const drawPad=()=>{const x=C+a.s*k*Math.cos(a.th),y=C-a.s*k*Math.sin(a.th);hl.setAttribute('x2',x);hl.setAttribute('y2',y);hd.setAttribute('cx',x);hd.setAttribute('cy',y)};
+  if(setup){
+    svg.classList.add('live');
+    const fromEvt=e=>{
+      const r=svg.getBoundingClientRect(),x=(e.clientX-r.left)*176/r.width-C,y=C-(e.clientY-r.top)*176/r.height;
+      let s=Math.min(VMAX,Math.hypot(x,y)/k),th=Math.atan2(y,x);
+      if(e.shiftKey){th=Math.round(th/(Math.PI/12))*Math.PI/12;s=Math.round(s*4)/4}   // shift: 15° and 0.25 m/s steps
+      a.s=Math.round(s*20)/20;a.th=th;applyInit(a);syncInspector();updateRow(a);
+    };
+    svg.onpointerdown=e=>{svg.setPointerCapture(e.pointerId);fromEvt(e);svg.onpointermove=fromEvt};
+    svg.onpointerup=svg.onpointercancel=()=>{svg.onpointermove=null};
+  }
+  insp={a,rows,drawPad,ro:$('#ro')};
+  syncInspector();
+}
+function syncInspector(){
+  if(!insp||insp.a!==PART.sel||!document.body.contains(insp.ro))return;
+  const a=insp.a;for(const k in insp.rows)insp.rows[k]();insp.drawPad();
+  const setup=PART.mode==='setup',st=initState(a),pos=setup?st.p:a.pos,v=setup?st.v:a.vel;
+  const B=Bat(pos,_Bi),Bm=B.length(),b=Bm>0?B.clone().multiplyScalar(1/Bm):Y.clone();
+  const vpar=v.dot(b),vperp=v.clone().addScaledVector(b,-vpar).length(),w=a.qm*Bm,T=w>0?2*Math.PI/w:Infinity,loc=cfg.uniform?'':' (local)';
+  insp.ro.innerHTML=[['|B|'+(setup?' at start':' here'),fmtB(Bm)],['force / mass',(a.qm*vperp*Bm).toFixed(2)+' m/s²'],['v⊥',vperp.toFixed(2)+' m/s'],['v∥',vpar.toFixed(2)+' m/s'],
+    ['radius r'+loc,vperp>.005&&w>0?(vperp/w).toFixed(2)+' m':'—'],['period T'+loc,isFinite(T)?T.toFixed(2)+' s':'—'],
+    ['pitch'+loc,Math.abs(vpar)>.005&&vperp>.005&&isFinite(T)?Math.abs(vpar*T).toFixed(2)+' m':'—'],['sense (from +B)',a.sign>0?'clockwise':'anticlockwise']]
+    .map(([l,v])=>`<span>${l}</span><b>${v}</b>`).join('');
+}
+function updateRow(a){
+  const r=pp.querySelector(`.crow[data-id="${a.id}"] .cmeta`);
+  if(r)r.textContent=chargeMeta(a);
+}
+
+/* tabs, per-scene charge sets */
+const chargeUI=()=>!!VIS_BY[state.vis].uniform||state.tab==='charges';
+function setTab(t,quiet){
+  state.tab=t;
+  $('#tabField').hidden=t!=='field';$('#tabCharges').hidden=t!=='charges';
+  document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  if($('#params').classList.contains('closed'))togglePanel('params',true);
+  if(!quiet)applyChargeUI();
+  if(INS.on)placeHud();
+}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+function applyChargeUI(){
+  const c=chargeUI();
+  planeGroup.visible=c&&planeGroup.userData.show!==false;axesGroup.visible=c&&axesGroup.userData.show!==false;
+  if(!c)PART.tool='orbit';
+  cvs.style.cursor='';
+  buildToolbar();buildParticlePanel();updateHint();
+}
+const SCN={};let loadedScene=null;
+function switchScene(id){
+  if(loadedScene===id)return;
+  if(loadedScene){
+    SCN[loadedScene]={list:PART.list,sel:PART.sel,mode:PART.mode,plane:PART.plane,viewN:PART.viewN.clone(),timeScale:PART.timeScale,nextId:PART.nextId};
+    for(const a of PART.list)partGroup.remove(a.trail,a.mark,a.arrow,a.farrow,a.earrow,a.sprite);
+  }
+  const s=SCN[id]||{list:[],sel:null,mode:'setup',plane:VIS_BY[id].uniform?'perpB':id==='accel'?'zx':'xy',viewN:new THREE.Vector3(0,0,1),timeScale:1,nextId:1};
+  Object.assign(PART,{list:s.list,sel:s.sel,mode:s.mode,plane:s.plane,timeScale:s.timeScale,nextId:s.nextId,drag:null,click:null});
+  PART.viewN.copy(s.viewN);
+  for(const a of PART.list)partGroup.add(a.trail,a.mark,a.arrow,a.farrow,a.earrow,a.sprite);
+  offs.innerHTML='';offEls.clear();loadedScene=id;
+}
+
+/* viewport toolbar (top centre) */
+const ICON={
+  orbit:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M4 2.5l8.5 5.2-3.7.9 2.2 4.1-1.5.8-2.2-4.1L4.6 12z"/></svg>',
+  pause:'<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><rect x="4" y="3" width="2.6" height="10" rx=".6"/><rect x="9.4" y="3" width="2.6" height="10" rx=".6"/></svg>',
+  play:'<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path d="M5 3.2v9.6c0 .5.5.8.9.5l7.2-4.8c.4-.3.4-.8 0-1L5.9 2.7c-.4-.3-.9 0-.9.5z"/></svg>',
+  reset:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8a4.5 4.5 0 1 0 1.4-3.3"/><path d="M3.2 2.6v2.6h2.6"/></svg>',
+  follow:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="8" cy="8" r="4.2"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/></svg>',
+  clear:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5"/></svg>',
+  eye:'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>',
+  eyeOff:'<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><path d="M2.5 13.5l11-11"/></svg>',
+  x:'<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>',
+  inspect:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2L14 14"/><circle cx="7" cy="7" r="1.3" fill="currentColor"/></svg>',
+  look:'<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M2 5.5l6-3 6 3-6 3z"/><path d="M8 8.5v5"/><path d="M6.3 12l1.7 1.6L9.7 12"/></svg>'};
+const tb=$('#toolbar');
+function buildToolbar(){
+  const v=VIS_BY[state.vis];let h='';
+  if(v.circuit)h+=`<div class="seg"><button data-act="circuit" title="Include leads and battery (C)"><span>Circuit</span><span class="sw"><i></i></span></button></div>`;
+  if(chargeUI()){
+    const planes=[['xy','XY'],['yz','YZ'],['zx','ZX'],...(v.uniform?[['perpB','⊥B']]:[]),['view','View']];
+    h+=`<div class="seg">
+        <button data-tool="orbit" title="Select / orbit (Esc)">${ICON.orbit}</button>
+        <button data-tool="pos" title="Place positive charges"><span class="dot pos">+</span></button>
+        <button data-tool="neg" title="Place negative charges"><span class="dot neg">−</span></button></div>
+      <div class="seg">${planes.map(([k,l])=>
+        `<button data-plane="${k}" title="${k==='view'?'Use the current view as the working plane':'Look at the '+l+' plane; new charges go here'}">${l}</button>`).join('')}</div>
+      <div class="seg"><button data-act="play" title="Run / pause (Space)"></button><button data-act="reset" title="Reset to initial conditions (R)">${ICON.reset}</button>
+        <button data-act="follow" title="Camera follows the selected charge (F)">${ICON.follow}</button>
+        <button data-act="inspect" title="Ride along with the selected charge (I)">${ICON.inspect}<span>Inspect</span></button>
+        <button data-act="clear" title="Remove all charges">${ICON.clear}</button></div>`;
+  }
+  tb.innerHTML=h;
+  tb.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
+  tb.querySelectorAll('[data-plane]').forEach(b=>b.onclick=()=>setPlane(b.dataset.plane,true));
+  tb.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>({circuit:toggleCircuit,play:togglePlay,reset:resetRun,
+    follow:()=>{PART.follow=!PART.follow;syncToolbar()},inspect:()=>INS.on?exitInspect():enterInspect(),clear:clearParticles})[b.dataset.act]());
+  syncToolbar();fitToolbar();
+}
+function syncToolbar(){
+  const setup=PART.mode==='setup';
+  tb.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('on',b.dataset.tool===PART.tool);b.classList.toggle('dis',!setup&&b.dataset.tool!=='orbit')});
+  tb.querySelectorAll('[data-plane]').forEach(b=>b.classList.toggle('on',b.dataset.plane===PART.plane));
+  const pb=tb.querySelector('[data-act=play]');
+  if(pb){pb.innerHTML=PART.mode==='run'?ICON.pause:ICON.play;pb.classList.toggle('dis',!PART.list.length);pb.classList.toggle('accent',PART.mode!=='run'&&PART.list.length>0)}
+  tb.querySelector('[data-act=reset]')?.classList.toggle('dis',setup);
+  tb.querySelector('[data-act=follow]')?.classList.toggle('on',PART.follow);
+  const ib=tb.querySelector('[data-act=inspect]');if(ib){ib.classList.toggle('on',INS.on);ib.classList.toggle('dis',!PART.sel&&!INS.on)}
+  const cb=tb.querySelector('[data-act=circuit]');if(cb)cb.classList.toggle('on',state.display.circuit);
+}
+// drop the toolbar below the title when the viewport is too narrow for both on one line
+function fitToolbar(){
+  tb.classList.remove('low');
+  const t=$('#title').getBoundingClientRect(),r=tb.getBoundingClientRect();
+  tb.classList.toggle('low',r.width>0&&r.left<t.right+16);
+}
+function toggleCircuit(){state.display.circuit=!state.display.circuit;syncToolbar();buildParams();applyVis(false)}
+new ResizeObserver(fitToolbar).observe(view);
+
+
+/* ---------- UI ---------- */
+const chev='<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6.5l3 3 3-3"/></svg>';
+function buildTree(){
+  const tree=$('#tree');tree.innerHTML='';
+  for(const [g,ids] of GROUPS){
+    const h=document.createElement('div');h.className='grp';h.innerHTML=chev+'<span>'+g+'</span>';
+    h.onclick=()=>h.classList.toggle('collapsed');
+    const box=document.createElement('div');box.className='items';
+    for(const id of ids){
+      const it=document.createElement('div');it.className='item';it.dataset.id=id;it.textContent=VIS_BY[id].item;
+      it.onclick=()=>select(id);box.appendChild(it);
+    }
+    tree.append(h,box);
+  }
+}
+function markTree(){for(const el of document.querySelectorAll('.item'))el.classList.toggle('sel',el.dataset.id===state.vis)}
+function setFill(inp){inp.style.setProperty('--p',((inp.value-inp.min)/(inp.max-inp.min)*100)+'%')}
+function buildParams(){
+  const v=VIS_BY[state.vis],p=P(),pl=$('#plist');pl.innerHTML='';
+  for(const d of v.params){
+    if(d.circuitOnly&&!state.display.circuit)continue;
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML=`<div class="lab"><span title="Double-click to reset">${d.label}</span><span class="val"></span></div>`;
+    const inp=document.createElement('input');Object.assign(inp,{type:'range',min:d.min,max:d.max,step:d.step,value:p[d.key]});
+    const val=row.querySelector('.val');
+    const sync=()=>{val.textContent=d.fmt(p[d.key]);setFill(inp)};
+    const set=x=>{p[d.key]=x;inp.value=x;sync();if(d.live)return;if(d.key==='I')recolorAll();else scheduleRebuild()};
+    inp.oninput=()=>set(+inp.value);
+    row.querySelector('.lab span').ondblclick=()=>set(d.value);
+    row.appendChild(inp);sync();pl.appendChild(row);
+  }
+  if(v.random){
+    const b=document.createElement('button');b.className='btn';b.textContent='Randomize';b.title='Randomize (R)';
+    b.onclick=randomize;pl.appendChild(b);
+  }
+  const dlist=$('#dlist');dlist.innerHTML='';
+  const tg=(label,get,flip,on='On',off='Off')=>{
+    const r=document.createElement('div');r.className='trow';
+    const b=document.createElement('button');b.className='tg';
+    const s=()=>{const x=get();b.textContent=x?on:off;b.classList.toggle('off',!x&&off==='Off')};
+    b.onclick=()=>{flip();s()};s();
+    r.innerHTML=`<span>${label}</span>`;r.appendChild(b);dlist.appendChild(r);
+  };
+  const D=state.display;
+  tg('Arrows',()=>D.arrows,()=>{D.arrows=!D.arrows});
+  if(!v.uniform){
+    tg('Current flow',()=>D.flow,()=>{D.flow=!D.flow});
+    tg('Line spacing',()=>D.spacing==='flux',toggleSpacing,'By flux','Even');
+  }else{
+    tg('Working plane',()=>planeGroup.userData.show!==false,()=>{planeGroup.userData.show=planeGroup.userData.show===false;planeGroup.visible=planeGroup.userData.show});
+    tg('Axes',()=>axesGroup.userData.show!==false,()=>{axesGroup.userData.show=axesGroup.userData.show===false;axesGroup.visible=axesGroup.userData.show});
+  }
+  tg('Intensity scale',()=>D.scale==='log',()=>{D.scale=D.scale==='log'?'linear':'log';recolorAll()},'Log','Linear');
+  tg('Auto-rotate',()=>D.rotate,()=>{D.rotate=!D.rotate});
+}
+function toggleSpacing(){state.display.spacing=state.display.spacing==='flux'?'even':'flux';applyVis(false)}
+function randomize(){state.seed=(Math.random()*1e9)|0;applyVis(false)}
+function select(id){
+  if(typeof INS!=='undefined'&&INS.on)exitInspect();
+  state.vis=id;markTree();
+  $('#title').textContent=VIS_BY[id].title;
+  switchScene(id);
+  if(VIS_BY[id].uniform)setTab('charges',true);
+  buildParams();applyVis(true);
+  if(PART.plane==='view'){PART.n.copy(PART.viewN);updateGizmo()}else setPlane(PART.plane,false);
+  applyChargeUI();
+}
+function togglePanel(id,force){
+  const el=$('#'+id),open=force??el.classList.contains('closed');
+  el.classList.toggle('closed',!open);
+  $(id==='explorer'?'#actExplorer':'#actParams').classList.toggle('on',open);
+  if(typeof INS!=='undefined'&&INS.on)placeHud();
+}
+$('#actExplorer').onclick=()=>togglePanel('explorer');
+$('#actParams').onclick=()=>togglePanel('params');
+$('#actReset').onclick=()=>setView();
+for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>togglePanel(b.dataset.close,false);
+addEventListener('keydown',e=>{
+  const mod=e.metaKey||e.ctrlKey;
+  if(mod&&e.code==='KeyB'){e.preventDefault();togglePanel(e.altKey?'params':'explorer');return}
+  if(e.target.tagName==='INPUT'||mod)return;
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    e.preventDefault();const i=ORDER.indexOf(state.vis),n=ORDER.length;
+    select(ORDER[(i+(e.key==='ArrowDown'?1:n-1))%n]);
+  }
+  if(e.key==='r'||e.key==='R'){if(chargeUI())resetRun();else if(VIS_BY[state.vis].random)randomize()}
+  const v=VIS_BY[state.vis];
+  if((e.key==='s'||e.key==='S')&&!v.uniform){toggleSpacing();buildParams()}
+  if((e.key==='c'||e.key==='C')&&v.circuit)toggleCircuit();
+  if(chargeUI()||PART.list.length){
+    if(e.target.tagName==='BUTTON')e.target.blur();
+    if(e.key===' '){e.preventDefault();togglePlay()}
+    if(e.key==='Escape'){if(INS.on){exitInspect();return}setTool('orbit');selectP(null)}
+    if(e.key==='i'||e.key==='I'){INS.on?exitInspect():enterInspect()}
+    if(e.key==='f'||e.key==='F'){PART.follow=!PART.follow;syncToolbar()}
+    if((e.key==='Backspace'||e.key==='Delete')&&PART.sel){e.preventDefault();removeParticle(PART.sel);refreshUI()}
+  }
+});
+if(innerWidth<820){togglePanel('explorer',false);togglePanel('params',false)}
+
+buildTree();
+requestAnimationFrame(()=>{select(state.vis);frame()});
+</script>
+</body>
+</html>

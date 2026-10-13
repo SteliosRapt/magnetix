@@ -1,0 +1,12 @@
+:root{
+  --bg:#1e1e1e; --side:#252526; --act:#333333; --border:#2b2b2b;
+  --fg:#cccccc; --dim:#858585; --sel:#37373d; --hover:#2a2d2e;
+  --accent:#007acc; --accent2:#3794ff; --track:#3c3c3c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+  font:13px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;overflow:hidden;user-select:none;-webkit-user-select:none}
+button{font:inherit}
+#app{display:flex;height:100vh;width:100vw}
+

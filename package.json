@@ -1,0 +1,11 @@
+{
+  "name": "magnetix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Interactive 3D magnetic fields and charges moving in them, built as one self-contained HTML file.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  }
+}

@@ -1,0 +1,37 @@
+/* activity bar */
+#activity{width:48px;flex:none;background:var(--act);display:flex;flex-direction:column;align-items:center;padding:4px 0 8px;z-index:3}
+.act{width:48px;height:48px;border:0;background:none;color:var(--dim);display:grid;place-items:center;cursor:pointer;position:relative;outline:none}
+.act:hover{color:var(--fg)}
+.act.on{color:#fff}
+.act.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:#fff;border-radius:0 1px 1px 0}
+.act svg{width:22px;height:22px}
+.spacer{flex:1}
+
+/* panels */
+.panel{flex:none;width:var(--w);background:var(--side);overflow:hidden;position:relative;
+  transition:width .26s cubic-bezier(.2,.8,.2,1)}
+.panel.closed{width:0;border-width:0!important}
+.panel-inner{width:var(--w);height:100%;display:flex;flex-direction:column}
+#explorer{--w:232px;border-right:1px solid var(--border)}
+#params{--w:276px;border-left:1px solid var(--border)}
+.ph{height:35px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 20px;
+  font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#bbbbbb}
+.x{width:22px;height:22px;border:0;background:none;color:var(--dim);border-radius:5px;display:grid;place-items:center;
+  cursor:pointer;opacity:0;transition:opacity .15s,background .15s;outline:none}
+.panel:hover .x{opacity:1}
+.x:hover{background:#ffffff14;color:var(--fg)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.scroll::-webkit-scrollbar{width:10px}
+.scroll::-webkit-scrollbar-thumb{background:#79797955;border:3px solid var(--side);border-radius:6px}
+
+/* tree */
+.grp{height:24px;display:flex;align-items:center;gap:2px;padding-left:10px;cursor:pointer;color:var(--dim)}
+.grp:hover{color:var(--fg)}
+.grp svg{transition:transform .15s}
+.grp.collapsed svg{transform:rotate(-90deg)}
+.grp.collapsed + .items{display:none}
+.item{height:26px;display:flex;align-items:center;padding-left:34px;cursor:pointer;color:var(--fg);
+  border-left:2px solid transparent;white-space:nowrap}
+.item:hover{background:var(--hover)}
+.item.sel{background:var(--sel);border-left-color:var(--accent);color:#fff}
+
