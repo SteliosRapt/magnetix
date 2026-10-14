@@ -6,6 +6,10 @@
 .act.on::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:#fff;border-radius:0 1px 1px 0}
 .act svg{width:22px;height:22px}
 .spacer{flex:1}
+#brandMark{height:48px;display:grid;place-items:center;margin-bottom:2px}
+#brandMark svg{height:26px;width:auto;display:block}
+#explorer .ph{height:44px}
+#brandWord svg{height:30px;width:auto;display:block;margin-left:-6px}
 
 /* panels */
 .panel{flex:none;width:var(--w);background:var(--side);overflow:hidden;position:relative;

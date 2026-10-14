@@ -1,5 +1,7 @@
 # Magnetix
 
+<img src="brand/magnetix-logo.svg" alt="Magnetix" height="64">
+
 Interactive 3D visualisation of magnetic fields (Biot–Savart) and of charged particles moving in them.
 
 The deliverable is a single self-contained file, **`dist/magnetix.html`**. Open it in a browser (it loads three.js from a CDN). It is generated from the sources in `src/`, so don't edit it by hand.
@@ -7,15 +9,28 @@ The deliverable is a single self-contained file, **`dist/magnetix.html`**. Open 
 ## Building
 
 ```sh
-npm run build     # src/ → dist/magnetix.html
+npm run build     # brand/logo.mjs → brand/*.svg, then src/ → dist/magnetix.html
 npm run watch     # rebuild on every change in src/
 ```
 
 No dependencies, just Node 18+.
 
+## Logo
+
+`brand/logo.mjs` draws the logo as plain SVG geometry (no font) and writes:
+
+| File | Use |
+|---|---|
+| `brand/magnetix-logo.svg` | Wordmark for light backgrounds |
+| `brand/magnetix-logo-dark.svg` | Wordmark for dark backgrounds (shown in the app's Explorer header) |
+| `brand/magnetix-icon.svg` | The M alone; follows the system light/dark theme (the browser-tab icon) |
+| `brand/magnetix-icon-dark.svg` | The M alone for dark backgrounds (top of the app's activity bar) |
+
+The proportions, stroke weight, colours and the gap in the M are constants at the top of `brand/logo.mjs`.
+
 ## How the source is organised
 
-`build.mjs` takes `src/index.html` and inlines every file in `src/styles/` at `/* @styles */` and every file in `src/js/` at `/* @scripts */`, in filename order.
+`build.mjs` takes `src/index.html`, replaces `<!-- @svg path -->` with that SVG file and `/* @datauri path */` with a data URI of it, and inlines every file in `src/styles/` at `/* @styles */` and every file in `src/js/` at `/* @scripts */`, in filename order.
 
 The JS files are **not** ES modules. They're concatenated into one `<script type="module">` and share a single scope, so a function defined in one file can be used in any other. The numeric prefix sets the order the top-level code runs in. A file may *call* a function from a later file (function declarations are hoisted), but top-level code must not read a `const`/`let` declared in a later file before that file has run.
 

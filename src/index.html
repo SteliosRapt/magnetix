@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Magnetix</title>
+<link rel="icon" type="image/svg+xml" href="/* @datauri brand/magnetix-icon.svg */">
 <style>
 /* @styles */
 </style>
@@ -11,6 +12,7 @@
 <body>
 <div id="app">
   <nav id="activity">
+    <div id="brandMark" title="Magnetix"><!-- @svg brand/magnetix-icon-dark.svg --></div>
     <button class="act on" id="actExplorer" title="Explorer (⌘B)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 3.5h6l4 4v11.5H9z"/><path d="M15 3.5v4h4"/><path d="M6 7v14h10"/></svg>
     </button>
@@ -24,7 +26,7 @@
   </nav>
 
   <aside id="explorer" class="panel"><div class="panel-inner">
-    <div class="ph"><span>Explorer</span>
+    <div class="ph"><span id="brandWord" aria-label="Magnetix"><!-- @svg brand/magnetix-logo-dark.svg --></span>
       <button class="x" data-close="explorer" title="Close (⌘B)"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
     </div>
     <div class="scroll" id="tree"></div>
